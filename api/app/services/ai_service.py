@@ -3,7 +3,7 @@ import httpx
 import uuid
 from datetime import datetime
 from typing import List
-from app.schemas.word import AIRequest, LegacyAIResponse, WordCreate, AIResponse
+from app.schemas.word import WordCreate, AIResponse
 from app.database.connection import get_db_connection
 from app.config.settings import settings
 from app.services.translation_service import TranslationService
@@ -11,20 +11,23 @@ from app.services.translation_service import TranslationService
 class AIService:
     @staticmethod
     def create_prompt(word: str) -> str:
-        """Create AI prompt with the word (dummy implementation)"""
-        return f"""
-        Please analyze the German word "{word}" and provide:
-        1. A natural German sentence using this word
-        2. The plural form of this word (if applicable)
-        
-        Respond only in JSON format with the exact structure:
-        {{
-            "tl_sentence": "<German sentence>",
-            "tl_plural": "<plural form of the word>"
-        }}
-        
-        Word to analyze: {word}
-        """
+        """Create AI prompt with the word using improved A1-level German prompt"""
+        return f"""You are a German-language assistant.
+Input
+- target_word (any German word) = {word}
+Tasks
+1. Generate one A1-level German sentence that includes target_word in its correct form.
+2. Determine and provide the standard plural form of target_word.
+Output
+Return only this JSON (no extra text, no markdown fences):
+{{
+  "tl_sentence": "<German sentence>",
+  "tl_plural": "<plural form of the word>"
+}}
+Accuracy requirements
+- Sentence must be entirely in German, brief, clear, and grammatically correct at A1 level.
+- Verify the plural form for correctness.
+- Output must be valid, parsable JSON and nothing else."""
     
     @staticmethod
     async def call_ai_api(word: str) -> AIResponse:
@@ -149,18 +152,3 @@ class AIService:
         await asyncio.gather(*tasks, return_exceptions=True)
         
         print(f"Batch processing completed for request: {request_id}")
-    
-    @staticmethod
-    def create_ai_request(ai_request: AIRequest) -> LegacyAIResponse:
-        """Create a request to local AI for word processing (legacy endpoint)"""
-        request_id = f"req_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
-        return LegacyAIResponse(
-            message="AI request created successfully",
-            request_id=request_id,
-            word=ai_request.word,
-            context=ai_request.context,
-            target_language=ai_request.target_language,
-            status="pending",
-            ai_endpoint=settings.AI_API_URL
-        )

@@ -1,38 +1,11 @@
 # app/services/anki_service.py
 import sqlite3
-import json
 from datetime import datetime
 from typing import List
-from app.schemas.anki import AnkiData, AnkiResponse, AnkiCard, AnkiCardList, AnkiCardResponse, AnkiCardData
+from app.schemas.anki import AnkiCard, AnkiCardList, AnkiCardResponse, AnkiCardData
 from app.database.connection import get_db_connection
 
 class AnkiService:
-    @staticmethod
-    def store_anki_data(anki_data: AnkiData) -> AnkiResponse:
-        """Store Anki data in database (legacy endpoint)"""
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT INTO anki_data (deck_name, cards_data, metadata)
-                VALUES (?, ?, ?)
-            """, (
-                anki_data.deck_name,
-                json.dumps(anki_data.cards),
-                json.dumps(anki_data.metadata) if anki_data.metadata else None
-            ))
-            
-            data_id = cursor.lastrowid
-            conn.commit()
-            
-            return AnkiResponse(
-                message="Anki data received successfully",
-                data_id=data_id,
-                deck_name=anki_data.deck_name,
-                cards_count=len(anki_data.cards),
-                timestamp=datetime.now().isoformat()
-            )
-    
     @staticmethod
     def store_anki_cards(card_list: AnkiCardList) -> AnkiCardResponse:
         """Store individual Anki cards with upsert functionality"""

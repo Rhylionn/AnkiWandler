@@ -1,25 +1,13 @@
-# app/api/endpoints/anki.py
 from fastapi import APIRouter, HTTPException, Depends, status
 from typing import List, Optional
 from app.auth.api_key import verify_api_key
 from app.schemas.anki import (
-    AnkiData, AnkiResponse, AnkiCard, AnkiCardList, 
+    AnkiCard, AnkiCardList, 
     AnkiCardResponse, AnkiCardData
 )
 from app.services.anki_service import AnkiService
 
 router = APIRouter(prefix="/anki", tags=["anki"])
-
-@router.post("/data", response_model=AnkiResponse)
-async def anki_data(anki_payload: AnkiData, api_key: str = Depends(verify_api_key)):
-    """Receive and store Anki data (legacy endpoint)"""
-    try:
-        return AnkiService.store_anki_data(anki_payload)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error storing Anki data: {str(e)}"
-        )
 
 @router.post("/cards", response_model=AnkiCardResponse)
 async def push_anki_cards(card_list: AnkiCardList, api_key: str = Depends(verify_api_key)):

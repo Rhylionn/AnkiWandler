@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
 
 class WordBase(BaseModel):
     word: str
@@ -36,6 +35,7 @@ class ProcessedWordResponse(BaseModel):
     tl_plural: Optional[str]
     processed_at: str
 
+# Internal AI processing schemas (not exposed via API)
 class AIResponse(BaseModel):
     tl_sentence: str
     tl_plural: Optional[str] = None
@@ -47,20 +47,7 @@ class TranslationRequest(BaseModel):
 class TranslationResponse(BaseModel):
     translated_text: str
 
-class AIRequest(BaseModel):
-    word: str
-    context: Optional[str] = None
-    target_language: Optional[str] = "en"
-
-class LegacyAIResponse(BaseModel):
-    message: str
-    request_id: str
-    word: str
-    context: Optional[str]
-    target_language: str
-    status: str
-    ai_endpoint: str
-
+# Management schemas
 class RetryResponse(BaseModel):
     message: str
     count: int

@@ -1,21 +1,7 @@
 # app/schemas/anki.py
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List
 
-# Legacy schemas (keep for backward compatibility)
-class AnkiData(BaseModel):
-    deck_name: str
-    cards: List[Dict[str, Any]]
-    metadata: Optional[Dict[str, Any]] = None
-
-class AnkiResponse(BaseModel):
-    message: str
-    data_id: int
-    deck_name: str
-    cards_count: int
-    timestamp: str
-
-# New card-based schemas
 class AnkiCard(BaseModel):
     card_id: str
     tl_word: str

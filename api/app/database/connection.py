@@ -34,18 +34,7 @@ def init_database():
         )
     """)
     
-    # Anki data table (legacy - keep for backward compatibility)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS anki_data (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            deck_name TEXT NOT NULL,
-            cards_data TEXT NOT NULL,
-            metadata TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
-    # New Anki cards table (individual card storage)
+    # Anki cards table (individual card storage)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS anki_cards (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
