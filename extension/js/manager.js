@@ -1,5 +1,6 @@
 // Updated manager script for Text Collector extension
 // Enhanced for universal source tracking (web/pdf)
+// Fixed storage size calculation and scroll to top on section switch
 
 let currentCollection = [];
 let filteredCollection = [];
@@ -48,7 +49,7 @@ function setupEventListeners() {
   document.getElementById("clearBtn").addEventListener("click", clearAllData);
 }
 
-// Navigation
+// Navigation with scroll to top fix
 function switchSection(sectionName) {
   // Update nav items
   document.querySelectorAll(".nav-item").forEach((item) => {
@@ -66,6 +67,12 @@ function switchSection(sectionName) {
 
   // Update URL hash
   window.location.hash = sectionName === "collection" ? "" : "#" + sectionName;
+
+  // Scroll to top when switching sections
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
 }
 
 // Collection management
@@ -103,6 +110,10 @@ function updateStats() {
 }
 
 function calculateStorageSize(collection) {
+  // Fixed: Return 0 if collection is empty or has no items
+  if (!collection || collection.length === 0) {
+    return 0;
+  }
   return new Blob([JSON.stringify(collection)]).size;
 }
 
@@ -344,6 +355,10 @@ async function deleteItem(id) {
 
   if (confirm(confirmMessage)) {
     try {
+      // Remove from both collections
+      currentCollection = currentCollection.filter((item) => item.id !== id);
+      filteredCollection = filteredCollection.filter((item) => item.id !== id);
+
       await chrome.storage.local.set({ collection: currentCollection });
 
       updateStats();

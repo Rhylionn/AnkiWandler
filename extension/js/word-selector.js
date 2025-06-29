@@ -1,6 +1,7 @@
 // Fixed word selector popup script
 
 let selectedSentence = null;
+let selectedWord = null; // Added missing variable declaration
 
 // Initialize on DOM load
 document.addEventListener("DOMContentLoaded", async function () {
@@ -11,6 +12,11 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 function setupEventListeners() {
   document.getElementById("cancelBtn").addEventListener("click", closeWindow);
+
+  // Fixed: Add event listener for accept button
+  document
+    .getElementById("acceptBtn")
+    .addEventListener("click", acceptSelectedWord);
 
   // Close on Escape key
   document.addEventListener("keydown", function (e) {
@@ -50,7 +56,7 @@ function setupWordGrid(sentence) {
   document.getElementById("loadingState").style.display = "none";
   document.getElementById("mainContent").style.display = "flex";
 
-  // Create word grid (no need to show selected text anymore)
+  // Create word grid
   const wordsContainer = document.getElementById("wordsContainer");
   wordsContainer.innerHTML = "";
 
@@ -67,7 +73,7 @@ function setupWordGrid(sentence) {
     wordElement.className = "word-item";
     wordElement.textContent = word;
 
-    // Add click handler to select word (not add immediately)
+    // Add click handler to select word
     wordElement.addEventListener("click", function (e) {
       e.stopPropagation();
       e.preventDefault();
@@ -96,7 +102,10 @@ function selectWord(word, element) {
 }
 
 async function acceptSelectedWord() {
-  if (!selectedWord) return;
+  if (!selectedWord) {
+    console.warn("No word selected");
+    return;
+  }
 
   try {
     // Disable buttons to prevent multiple clicks
@@ -105,10 +114,21 @@ async function acceptSelectedWord() {
 
     await addWord(selectedWord);
   } catch (error) {
+    console.error("Error accepting word:", error);
+
     // Re-enable buttons on error
     document.getElementById("acceptBtn").disabled = false;
     document.getElementById("cancelBtn").disabled = false;
-    throw error;
+
+    // Reset word selection
+    document.querySelectorAll(".word-item").forEach((item) => {
+      item.classList.remove("selected");
+    });
+    selectedWord = null;
+    document.getElementById("acceptBtn").disabled = true;
+    document.getElementById("acceptBtn").textContent = "Accept";
+
+    showError(`Failed to add word: ${error.message}`);
   }
 }
 
@@ -158,20 +178,7 @@ async function addWord(word) {
     }
   } catch (error) {
     console.error("Error adding word:", error);
-
-    // Re-enable buttons on error
-    document.getElementById("acceptBtn").disabled = false;
-    document.getElementById("cancelBtn").disabled = false;
-
-    // Reset word selection
-    document.querySelectorAll(".word-item").forEach((item) => {
-      item.classList.remove("selected");
-    });
-    selectedWord = null;
-    document.getElementById("acceptBtn").disabled = true;
-    document.getElementById("acceptBtn").textContent = "Accept";
-
-    showError(`Failed to add word: ${error.message}`);
+    throw error; // Re-throw to be handled by acceptSelectedWord
   }
 }
 

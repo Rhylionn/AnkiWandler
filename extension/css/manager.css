@@ -306,9 +306,11 @@ body {
   border-color: #fca5a5;
 }
 
-/* Settings Form */
+/* Settings Form - Fixed centering and layout */
 .settings-form {
-  max-width: 500px;
+  max-width: 600px;
+  margin: 0 auto; /* Center the form horizontally */
+  padding: 0 20px; /* Add some padding for mobile */
 }
 
 .form-group {
@@ -341,6 +343,7 @@ body {
   display: flex;
   gap: 12px;
   margin-bottom: 32px;
+  justify-content: center; /* Center the buttons */
 }
 
 .btn-secondary {
@@ -403,11 +406,12 @@ body {
   border: 1px solid #fed7aa;
 }
 
-/* Settings Sections */
+/* Settings Sections - Better spacing and centering */
 .settings-section {
   border-bottom: 1px solid #f3f4f6;
   padding-bottom: 32px;
   margin-bottom: 32px;
+  text-align: center; /* Center content within sections */
 }
 
 .settings-section:last-child {
@@ -416,7 +420,7 @@ body {
 }
 
 .section-title {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: #111827;
   margin-bottom: 16px;
@@ -426,6 +430,10 @@ body {
   font-size: 14px;
   color: #6b7280;
   margin-bottom: 20px;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
 }
 
 .danger-zone {
@@ -433,6 +441,8 @@ body {
   border: 1px solid #fecaca;
   border-radius: 8px;
   padding: 20px;
+  max-width: 400px;
+  margin: 0 auto; /* Center the danger zone */
 }
 
 .btn-danger-outline {
@@ -539,6 +549,7 @@ body {
 
   .form-actions {
     flex-direction: column;
+    align-items: center;
   }
 
   .nav {
@@ -559,5 +570,18 @@ body {
   .item-context {
     font-size: 13px;
     padding: 10px;
+  }
+
+  .settings-form {
+    padding: 0 10px;
+  }
+
+  .section-title {
+    font-size: 16px;
+  }
+
+  .danger-zone {
+    max-width: 100%;
+    margin: 0;
   }
 }

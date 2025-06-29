@@ -3,13 +3,7 @@
   "name": "Text Collector",
   "version": "1.0.0",
   "description": "Collect and manage highlighted text from any webpage or PDF",
-  "permissions": [
-    "storage",
-    "contextMenus",
-    "activeTab",
-    "scripting",
-    "notifications"
-  ],
+  "permissions": ["storage", "contextMenus", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "js/background.js"

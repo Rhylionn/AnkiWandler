@@ -1,5 +1,6 @@
 // Simplified background service worker for Text Collector extension
 // Universal popup window approach with simple word selection
+// Notification system removed
 
 // Initialize extension
 chrome.runtime.onInstalled.addListener(() => {
@@ -42,7 +43,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         context: null,
       });
 
-      showNotification(selectedText, "Word Collected");
       updateBadge();
     } else if (info.menuItemId === "collectWithContext") {
       // Context collection using popup window
@@ -50,7 +50,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     }
   } catch (error) {
     console.error("Error handling context menu click:", error);
-    showNotification("Error collecting text", "Error");
   }
 });
 
@@ -99,7 +98,6 @@ async function openWordSelectionPopup(selectedText) {
       context: { sentence: selectedText },
     });
 
-    showNotification(selectedText, "Context Collected (Fallback)");
     updateBadge();
   }
 }
@@ -152,28 +150,6 @@ async function updateBadge() {
     }
   } catch (error) {
     console.error("Error updating badge:", error);
-  }
-}
-
-// Show notification
-function showNotification(text, title) {
-  try {
-    const preview = text.length > 50 ? text.substring(0, 50) + "..." : text;
-
-    chrome.notifications
-      .create({
-        type: "basic",
-        iconUrl: chrome.runtime.getURL("icons/icon.png"),
-        title: title,
-        message: `"${preview}"`,
-      })
-      .catch((error) => {
-        console.warn("Notification failed:", error);
-        // Notification failure shouldn't break the flow
-      });
-  } catch (error) {
-    console.warn("Notification error:", error);
-    // Continue without notification if it fails
   }
 }
 
@@ -251,13 +227,6 @@ async function handleMessage(request, sender, sendResponse) {
           });
 
           await updateBadge();
-
-          // Show notification (non-blocking)
-          try {
-            showNotification(request.word, "Word Added");
-          } catch (notifError) {
-            console.warn("Notification failed:", notifError);
-          }
 
           // Close word selector window
           await cleanupWordSelection();
