@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Select Word - Text Collector</title>
+    <link rel="stylesheet" href="../css/word-selector.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <h1 class="title">Text Collector</h1>
+        <p class="subtitle">Click on the word you want to learn</p>
+      </header>
+
+      <!-- Loading State -->
+      <div id="loadingState" class="section active">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Loading selected text...</p>
+        </div>
+      </div>
+
+      <!-- Error State -->
+      <div id="errorState" class="section" style="display: none">
+        <div class="error">
+          <h3>Unable to Load Selection</h3>
+          <p id="errorMessage">No text selection found</p>
+        </div>
+      </div>
+
+      <!-- Success State -->
+      <div id="successState" class="section" style="display: none">
+        <div class="success">
+          <h3>✅ Word Added Successfully!</h3>
+          <p id="successMessage"></p>
+          <p class="auto-close">
+            Closing in <span id="countdown">2</span> seconds
+          </p>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div id="mainContent" class="section" style="display: none">
+        <div class="content-section">
+          <h3>Available Words</h3>
+          <div class="words-container" id="wordsContainer"></div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="actions">
+        <button class="btn btn-danger" id="cancelBtn">Cancel</button>
+        <button class="btn btn-success" id="acceptBtn" disabled>Accept</button>
+      </div>
+    </div>
+
+    <script src="../js/word-selector.js"></script>
+  </body>
+</html>

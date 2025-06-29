@@ -1,5 +1,5 @@
-// Clean Manager script for Text Collector extension
-// Focus on words and context, no source URLs
+// Updated manager script for Text Collector extension
+// Enhanced for universal source tracking (web/pdf)
 
 let currentCollection = [];
 let filteredCollection = [];
@@ -84,9 +84,10 @@ async function loadCollection() {
 }
 
 function updateStats() {
-  document.getElementById("totalCount").textContent = currentCollection.length;
+  const total = currentCollection.length;
+  document.getElementById("totalCount").textContent = total;
 
-  // Count by type
+  // Count by collection type
   const directCount = currentCollection.filter(
     (item) => !item.needsArticle
   ).length;
@@ -127,37 +128,39 @@ function renderCollection() {
 
   container.innerHTML = filteredCollection
     .map((item) => {
-      const typeLabel = item.needsArticle ? "Context" : "Direct";
       const typeClass = item.needsArticle ? "context-badge" : "direct-badge";
+      const typeLabel = item.needsArticle ? "Context" : "Direct";
 
       return `
-        <div class="item" data-id="${item.id}">
-          <div class="item-header">
-            <div class="item-content" id="content-${item.id}">${escapeHtml(
-        item.text
-      )}</div>
-            <span class="${typeClass}">${typeLabel}</span>
-          </div>
-          ${
-            item.context?.sentence
-              ? `
-          <div class="item-context">
-            ${escapeHtml(item.context.sentence)}
-          </div>
-          `
-              : ""
-          }
-          <div class="item-meta">
-            <span class="item-date">${formatDate(item.date)}</span>
-          </div>
-          <div class="item-actions">
-            <button class="btn edit-btn" data-id="${item.id}">Edit</button>
-            <button class="btn btn-danger delete-btn" data-id="${
-              item.id
-            }">Delete</button>
-          </div>
-        </div>
-      `;
+                <div class="item" data-id="${item.id}">
+                    <div class="item-header">
+                        <div class="item-content" id="content-${
+                          item.id
+                        }">${escapeHtml(item.text)}</div>
+                        <span class="${typeClass}">${typeLabel}</span>
+                    </div>
+                    ${
+                      item.context?.sentence
+                        ? `
+                        <div class="item-context">
+                            ${escapeHtml(item.context.sentence)}
+                        </div>
+                    `
+                        : ""
+                    }
+                    <div class="item-meta">
+                        <span class="item-date">${formatDate(item.date)}</span>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn edit-btn" data-id="${
+                          item.id
+                        }">Edit</button>
+                        <button class="btn btn-danger delete-btn" data-id="${
+                          item.id
+                        }">Delete</button>
+                    </div>
+                </div>
+            `;
     })
     .join("");
 
@@ -194,9 +197,8 @@ function handleSearch() {
   renderCollection();
 }
 
-// Item actions
+// Item actions (edit/delete remain the same as before)
 function editItem(id) {
-  // If another item is being edited, save it first
   if (currentEditingId && currentEditingId !== id) {
     saveEdit(currentEditingId);
   }
@@ -212,7 +214,6 @@ function editItem(id) {
   const currentText =
     currentCollection.find((item) => item.id === id)?.text || "";
 
-  // Make element editable
   contentElement.contentEditable = true;
   contentElement.textContent = currentText;
   contentElement.style.background = "#f3f4f6";
@@ -220,14 +221,12 @@ function editItem(id) {
   contentElement.style.padding = "8px";
   contentElement.focus();
 
-  // Select all text for easy editing
   const range = document.createRange();
   range.selectNodeContents(contentElement);
   const selection = window.getSelection();
   selection.removeAllRanges();
   selection.addRange(range);
 
-  // Add event listeners for saving/canceling
   const handleKeydown = function (e) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -251,8 +250,6 @@ function editItem(id) {
 
   contentElement.addEventListener("keydown", handleKeydown);
   contentElement.addEventListener("blur", handleBlur);
-
-  // Store the event handlers so we can remove them later
   contentElement._handleKeydown = handleKeydown;
   contentElement._handleBlur = handleBlur;
 }
@@ -266,12 +263,10 @@ async function saveEdit(id) {
   const newText = contentElement.textContent.trim();
 
   if (newText && newText !== "") {
-    // Find and update the item in the collection
     const itemIndex = currentCollection.findIndex((item) => item.id === id);
     if (itemIndex !== -1) {
       currentCollection[itemIndex].text = newText;
 
-      // Update filtered collection as well
       const filteredIndex = filteredCollection.findIndex(
         (item) => item.id === id
       );
@@ -279,7 +274,6 @@ async function saveEdit(id) {
         filteredCollection[filteredIndex].text = newText;
       }
 
-      // Save to Chrome storage
       try {
         await chrome.storage.local.set({ collection: currentCollection });
         showToast("Item updated successfully", "success");
@@ -292,7 +286,7 @@ async function saveEdit(id) {
     showToast("Cannot save empty text", "error");
   }
 
-  // Clean up event listeners
+  // Clean up
   if (contentElement._handleKeydown) {
     contentElement.removeEventListener(
       "keydown",
@@ -305,14 +299,12 @@ async function saveEdit(id) {
     delete contentElement._handleBlur;
   }
 
-  // Reset editing state
   contentElement.contentEditable = false;
   contentElement.style.background = "";
   contentElement.style.border = "";
   contentElement.style.padding = "4px";
   currentEditingId = null;
 
-  // Re-render to show updated content
   renderCollection();
 }
 
@@ -320,7 +312,6 @@ function cancelEdit(id) {
   const contentElement = document.getElementById(`content-${id}`);
   if (!contentElement) return;
 
-  // Clean up event listeners
   if (contentElement._handleKeydown) {
     contentElement.removeEventListener(
       "keydown",
@@ -339,16 +330,12 @@ function cancelEdit(id) {
   contentElement.style.padding = "4px";
   currentEditingId = null;
 
-  // Re-render to restore original content
   renderCollection();
 }
 
 async function deleteItem(id) {
   const item = currentCollection.find((item) => item.id === id);
-  if (!item) {
-    console.error("Item not found for deletion:", id);
-    return;
-  }
+  if (!item) return;
 
   const confirmMessage = `Are you sure you want to delete this item?\n\n"${item.text.substring(
     0,
@@ -357,19 +344,12 @@ async function deleteItem(id) {
 
   if (confirm(confirmMessage)) {
     try {
-      // Remove from both collections
-      currentCollection = currentCollection.filter((item) => item.id !== id);
-      filteredCollection = filteredCollection.filter((item) => item.id !== id);
-
-      // Save to Chrome storage
       await chrome.storage.local.set({ collection: currentCollection });
 
-      // Update UI
       updateStats();
       renderCollection();
       showToast("Item deleted successfully", "success");
 
-      // Update extension badge
       chrome.runtime.sendMessage({ action: "updateBadge" });
     } catch (error) {
       console.error("Error deleting item:", error);
@@ -391,7 +371,6 @@ async function syncToServer() {
 
     if (response.success) {
       showToast(response.message, "success");
-      // Collection will be updated automatically via storage listener
     } else {
       showToast(response.message, "error");
     }
@@ -497,7 +476,6 @@ async function clearAllData() {
         renderCollection();
         showToast("All data cleared", "success");
 
-        // Update badge
         chrome.runtime.sendMessage({ action: "updateBadge" });
       } catch (error) {
         showToast("Error clearing data", "error");

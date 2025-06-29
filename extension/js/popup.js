@@ -1,15 +1,8 @@
-// Popup script for Text Collector extension
+// Updated popup script for Text Collector extension
 
 document.addEventListener("DOMContentLoaded", async function () {
-  // Load and display stats
   await loadStats();
-
-  // Set up event listeners
-  document.getElementById("openManager").addEventListener("click", openManager);
-  document.getElementById("syncBtn").addEventListener("click", syncToServer);
-  document
-    .getElementById("settingsBtn")
-    .addEventListener("click", openSettings);
+  setupEventListeners();
 
   // Update stats every few seconds while popup is open
   const statsInterval = setInterval(loadStats, 2000);
@@ -20,6 +13,14 @@ document.addEventListener("DOMContentLoaded", async function () {
   });
 });
 
+function setupEventListeners() {
+  document.getElementById("openManager").addEventListener("click", openManager);
+  document.getElementById("syncBtn").addEventListener("click", syncToServer);
+  document
+    .getElementById("settingsBtn")
+    .addEventListener("click", openSettings);
+}
+
 async function loadStats() {
   try {
     const result = await chrome.storage.local.get(["collection"]);
@@ -27,6 +28,13 @@ async function loadStats() {
 
     // Update total items
     document.getElementById("totalItems").textContent = collection.length;
+
+    // Count by collection type
+    const directCount = collection.filter((item) => !item.needsArticle).length;
+    const contextCount = collection.filter((item) => item.needsArticle).length;
+
+    document.getElementById("directItems").textContent = directCount;
+    document.getElementById("contextItems").textContent = contextCount;
 
     // Calculate storage size
     const storageSize = calculateStorageSize(collection);
@@ -40,8 +48,6 @@ async function loadStats() {
       const timeAgo = getTimeAgo(lastAdded);
 
       document.getElementById("lastAdded").textContent = timeAgo;
-
-      // Show recent item preview
       showRecentItem(lastItem);
     } else {
       document.getElementById("lastAdded").textContent = "Never";
@@ -58,11 +64,11 @@ function showRecentItem(item) {
   const metaDiv = document.getElementById("recentMeta");
 
   const preview =
-    item.text.length > 60 ? item.text.substring(0, 60) + "..." : item.text;
+    item.text.length > 50 ? item.text.substring(0, 50) + "..." : item.text;
   textDiv.textContent = `"${preview}"`;
 
-  const domain = new URL(item.url).hostname;
-  metaDiv.textContent = `from ${domain}`;
+  const contextLabel = item.needsArticle ? "with context" : "direct";
+  metaDiv.textContent = `${contextLabel} collection`;
 
   recentDiv.style.display = "block";
 }
@@ -106,7 +112,7 @@ function openManager() {
 
 function openSettings() {
   chrome.tabs.create({
-    url: chrome.runtime.getURL("manager.html#settings"),
+    url: chrome.runtime.getURL("html/manager.html#settings"),
   });
   window.close();
 }
@@ -123,7 +129,6 @@ async function syncToServer() {
   showStatus("Connecting to server...", "pending");
 
   try {
-    // Send sync message to background script
     const response = await chrome.runtime.sendMessage({ action: "sync" });
 
     if (response.success) {
