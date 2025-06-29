@@ -158,12 +158,20 @@
         padding-right: 20px;
       }
 
-      .item-content {
-        font-size: 15px;
-        line-height: 1.6;
+      .item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
         margin-bottom: 12px;
+        gap: 12px;
+      }
+
+      .item-content {
+        font-size: 16px;
+        line-height: 1.6;
         color: #111827;
-        min-height: 24px;
+        font-weight: 500;
+        flex: 1;
         padding: 4px;
         border-radius: 4px;
         transition: all 0.2s ease;
@@ -176,6 +184,42 @@
         padding: 8px;
       }
 
+      .direct-badge {
+        background: #dbeafe;
+        color: #1e40af;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        white-space: nowrap;
+      }
+
+      .context-badge {
+        background: #dcfce7;
+        color: #166534;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        white-space: nowrap;
+      }
+
+      .item-context {
+        font-size: 14px;
+        color: #4b5563;
+        background: #f9fafb;
+        padding: 12px;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        border-left: 4px solid #059669;
+        font-style: italic;
+        line-height: 1.5;
+      }
+
       .item-meta {
         display: flex;
         justify-content: space-between;
@@ -183,20 +227,24 @@
         font-size: 13px;
         color: #6b7280;
         margin-bottom: 16px;
-      }
-
-      .item-source {
-        color: #374151;
-        text-decoration: none;
-        font-weight: 500;
-      }
-
-      .item-source:hover {
-        text-decoration: underline;
+        flex-wrap: wrap;
+        gap: 8px;
       }
 
       .item-date {
         font-size: 12px;
+      }
+
+      .word-badge {
+        background: #fef3c7;
+        color: #92400e;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: none; /* Hidden - feature removed */
       }
 
       .item-actions {
@@ -514,6 +562,17 @@
           margin: 0 4px;
           padding: 12px 16px;
         }
+
+        .item-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 8px;
+        }
+
+        .item-context {
+          font-size: 13px;
+          padding: 10px;
+        }
       }
     </style>
   </head>
@@ -521,7 +580,7 @@
     <div class="container">
       <header class="header">
         <h1 class="title">Text Collector</h1>
-        <p class="subtitle">Manage your collected text snippets</p>
+        <p class="subtitle">Clean collection focused on words and context</p>
       </header>
 
       <nav class="nav">
@@ -536,11 +595,19 @@
         <div class="stats">
           <div class="stat">
             <span class="stat-number" id="totalCount">0</span>
-            <span class="stat-label">Total Items</span>
+            <span class="stat-label">Total Words</span>
+          </div>
+          <div class="stat">
+            <span class="stat-number" id="directCount">0</span>
+            <span class="stat-label">Direct</span>
+          </div>
+          <div class="stat">
+            <span class="stat-number" id="contextCount">0</span>
+            <span class="stat-label">Context</span>
           </div>
           <div class="stat">
             <span class="stat-number" id="storageSize">0 KB</span>
-            <span class="stat-label">Storage Used</span>
+            <span class="stat-label">Storage</span>
           </div>
         </div>
 
@@ -550,7 +617,7 @@
               type="text"
               class="search-input"
               id="searchInput"
-              placeholder="Search collection..."
+              placeholder="Search words or context..."
             />
           </div>
           <button class="sync-btn" id="syncBtn">Sync to Server</button>
@@ -561,10 +628,11 @@
         </div>
 
         <div class="empty-state" id="emptyState" style="display: none">
-          <h3>No items collected yet</h3>
+          <h3>No words collected yet</h3>
           <p>
-            Highlight text on any webpage and use the context menu to add it to
-            your collection.
+            Highlight text on any webpage and choose:<br />
+            <strong>"Collect Word"</strong> for direct collection or<br />
+            <strong>"Collect with Context"</strong> for AI article detection
           </p>
         </div>
       </div>
@@ -575,7 +643,8 @@
           <div class="settings-section">
             <h2 class="section-title">Server Configuration</h2>
             <p class="section-description">
-              Configure your server connection for syncing collected text.
+              Configure your server connection for syncing collected words with
+              AI processing.
             </p>
 
             <div class="form-group">
@@ -623,11 +692,45 @@
           </div>
 
           <div class="settings-section">
+            <h2 class="section-title">Usage Instructions</h2>
+            <p class="section-description">
+              Two collection methods for different use cases:
+            </p>
+            <div
+              style="
+                background: #f9fafb;
+                padding: 16px;
+                border-radius: 6px;
+                margin-bottom: 20px;
+              "
+            >
+              <div style="margin-bottom: 12px">
+                <strong style="color: #1e40af"
+                  >Collect Word (Ctrl+Shift+C):</strong
+                ><br />
+                <span style="font-size: 13px; color: #6b7280"
+                  >Direct collection when article is already present (e.g., "der
+                  Hund")</span
+                >
+              </div>
+              <div>
+                <strong style="color: #166534"
+                  >Collect with Context (Ctrl+Shift+X):</strong
+                ><br />
+                <span style="font-size: 13px; color: #6b7280"
+                  >AI-powered article detection using sentence context (e.g.,
+                  "Hund" → context analysis)</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
             <h2 class="section-title">Data Management</h2>
             <div class="danger-zone">
               <p class="section-description">
-                Permanently delete all collected text. This action cannot be
-                undone.
+                Permanently delete all collected words and context information.
+                This action cannot be undone.
               </p>
               <button class="btn-danger-outline" id="clearBtn">
                 Clear All Data

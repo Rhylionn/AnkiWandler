@@ -1,4 +1,5 @@
-// Manager script for Text Collector extension
+// Clean Manager script for Text Collector extension
+// Focus on words and context, no source URLs
 
 let currentCollection = [];
 let filteredCollection = [];
@@ -85,6 +86,17 @@ async function loadCollection() {
 function updateStats() {
   document.getElementById("totalCount").textContent = currentCollection.length;
 
+  // Count by type
+  const directCount = currentCollection.filter(
+    (item) => !item.needsArticle
+  ).length;
+  const contextCount = currentCollection.filter(
+    (item) => item.needsArticle
+  ).length;
+
+  document.getElementById("directCount").textContent = directCount;
+  document.getElementById("contextCount").textContent = contextCount;
+
   const storageSize = calculateStorageSize(currentCollection);
   document.getElementById("storageSize").textContent = formatBytes(storageSize);
 }
@@ -114,31 +126,39 @@ function renderCollection() {
   emptyState.style.display = "none";
 
   container.innerHTML = filteredCollection
-    .map(
-      (item) => `
-    <div class="item" data-id="${item.id}">
-      <div class="item-content" id="content-${item.id}">${escapeHtml(
+    .map((item) => {
+      const typeLabel = item.needsArticle ? "Context" : "Direct";
+      const typeClass = item.needsArticle ? "context-badge" : "direct-badge";
+
+      return `
+        <div class="item" data-id="${item.id}">
+          <div class="item-header">
+            <div class="item-content" id="content-${item.id}">${escapeHtml(
         item.text
       )}</div>
-      <div class="item-meta">
-        <a href="${
-          item.url
-        }" target="_blank" class="item-source" title="${escapeHtml(
-        item.title
-      )}">
-          ${getDomain(item.url)}
-        </a>
-        <span class="item-date">${formatDate(item.date)}</span>
-      </div>
-      <div class="item-actions">
-        <button class="btn edit-btn" data-id="${item.id}">Edit</button>
-        <button class="btn btn-danger delete-btn" data-id="${
-          item.id
-        }">Delete</button>
-      </div>
-    </div>
-  `
-    )
+            <span class="${typeClass}">${typeLabel}</span>
+          </div>
+          ${
+            item.context?.sentence
+              ? `
+          <div class="item-context">
+            ${escapeHtml(item.context.sentence)}
+          </div>
+          `
+              : ""
+          }
+          <div class="item-meta">
+            <span class="item-date">${formatDate(item.date)}</span>
+          </div>
+          <div class="item-actions">
+            <button class="btn edit-btn" data-id="${item.id}">Edit</button>
+            <button class="btn btn-danger delete-btn" data-id="${
+              item.id
+            }">Delete</button>
+          </div>
+        </div>
+      `;
+    })
     .join("");
 
   // Add event listeners to all edit and delete buttons
@@ -166,8 +186,8 @@ function handleSearch() {
     filteredCollection = currentCollection.filter(
       (item) =>
         item.text.toLowerCase().includes(query) ||
-        item.title.toLowerCase().includes(query) ||
-        getDomain(item.url).toLowerCase().includes(query)
+        (item.context?.sentence &&
+          item.context.sentence.toLowerCase().includes(query))
     );
   }
 
@@ -176,8 +196,6 @@ function handleSearch() {
 
 // Item actions
 function editItem(id) {
-  console.log("Editing item with ID:", id); // Debug log
-
   // If another item is being edited, save it first
   if (currentEditingId && currentEditingId !== id) {
     saveEdit(currentEditingId);
@@ -222,7 +240,6 @@ function editItem(id) {
   };
 
   const handleBlur = function (e) {
-    // Only save if we're not clicking on another button
     if (!e.relatedTarget || !e.relatedTarget.classList.contains("btn")) {
       setTimeout(() => {
         if (currentEditingId === id) {
@@ -241,8 +258,6 @@ function editItem(id) {
 }
 
 async function saveEdit(id) {
-  console.log("Saving edit for ID:", id); // Debug log
-
   if (!currentEditingId || currentEditingId !== id) return;
 
   const contentElement = document.getElementById(`content-${id}`);
@@ -274,7 +289,6 @@ async function saveEdit(id) {
       }
     }
   } else {
-    // If text is empty, don't save and revert
     showToast("Cannot save empty text", "error");
   }
 
@@ -303,8 +317,6 @@ async function saveEdit(id) {
 }
 
 function cancelEdit(id) {
-  console.log("Canceling edit for ID:", id); // Debug log
-
   const contentElement = document.getElementById(`content-${id}`);
   if (!contentElement) return;
 
@@ -332,8 +344,6 @@ function cancelEdit(id) {
 }
 
 async function deleteItem(id) {
-  console.log("Deleting item with ID:", id); // Debug log
-
   const item = currentCollection.find((item) => item.id === id);
   if (!item) {
     console.error("Item not found for deletion:", id);
@@ -535,14 +545,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function getDomain(url) {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return "Unknown";
-  }
-}
-
 function formatDate(dateString) {
   const date = new Date(dateString);
   const now = new Date();
@@ -559,7 +561,3 @@ function formatDate(dateString) {
 
   return date.toLocaleDateString();
 }
-
-// Remove the global function exports since we're now using proper event listeners
-// window.editItem = editItem;
-// window.deleteItem = deleteItem;
