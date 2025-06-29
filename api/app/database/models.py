@@ -3,12 +3,16 @@ from datetime import datetime
 
 class PendingWordModel:
     def __init__(self, id: int, word: str, date: str, 
-                 created_at: str, processing_status: str):
+                 created_at: str, processing_status: str,
+                 context_sentence: Optional[str] = None, 
+                 needs_article: bool = False):
         self.id = id
         self.word = word
         self.date = date
         self.created_at = created_at
         self.processing_status = processing_status
+        self.context_sentence = context_sentence
+        self.needs_article = needs_article
 
 class ProcessedWordModel:
     def __init__(self, id: int, original_word: str, date: str,

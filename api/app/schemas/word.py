@@ -4,6 +4,8 @@ from typing import Optional, List
 class WordBase(BaseModel):
     word: str
     date: str
+    context_sentence: Optional[str] = None
+    needs_article: bool = False
 
 class WordCreate(WordBase):
     pass
@@ -23,6 +25,8 @@ class PendingWordResponse(BaseModel):
     date: str
     created_at: str
     processing_status: str
+    context_sentence: Optional[str] = None
+    needs_article: bool
 
 class ProcessedWordResponse(BaseModel):
     id: int
@@ -37,6 +41,7 @@ class ProcessedWordResponse(BaseModel):
 
 # Internal AI processing schemas (not exposed via API)
 class AIResponse(BaseModel):
+    tl_word: str
     tl_sentence: str
     tl_plural: Optional[str] = None
 

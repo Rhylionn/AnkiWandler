@@ -2,7 +2,7 @@ import asyncio
 import httpx
 import uuid
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from app.schemas.word import WordCreate, AIResponse
 from app.database.connection import get_db_connection
 from app.config.settings import settings
@@ -10,32 +10,41 @@ from app.services.translation_service import TranslationService
 
 class AIService:
     @staticmethod
-    def create_prompt(word: str) -> str:
-        """Create AI prompt with the word using improved A1-level German prompt"""
-        return f"""You are a German-language assistant.
-Input
-- target_word (any German word) = {word}
-Tasks
-1. Generate one A1-level German sentence that includes target_word in its correct form.
-2. Determine and provide the standard plural form of target_word.
-Output
-Return only this JSON (no extra text, no markdown fences):
+    def create_prompt(word: str, context_sentence: Optional[str] = None, needs_article: bool = False) -> str:
+        """Create AI prompt with adaptive context support and article detection"""
+        
+        return f"""You are a German-language assistant specializing in noun articles and A1-level sentence construction.
+
+Input:
+- target_word = {word}
+- context_sentence = {context_sentence}
+- needs_article = {needs_article}
+
+Tasks:
+1. If needs_article is true, use the context_sentence to determine the correct definite article (der/die/das) and add it to target_word. If needs_article is false, use target_word as-is for tl_word.
+2. Generate one A1-level German sentence using target_word.
+3. Determine the standard plural form of the base noun.
+
+Output (JSON only, no markdown):
 {{
-  "tl_sentence": "<German sentence>",
-  "tl_plural": "<plural form of the word>"
+  "tl_word": "<word with article>",
+  "tl_sentence": "<German A1 sentence>",
+  "tl_plural": "<plural form>"
 }}
-Accuracy requirements
-- Sentence must be entirely in German, brief, clear, and grammatically correct at A1 level.
-- Verify the plural form for correctness.
-- Output must be valid, parsable JSON and nothing else."""
+
+Requirements:
+- When needs_article is true, use context to determine correct definite article in nominative case
+- Sentence must be A1-level German, grammatically correct
+- Plural must be accurate German plural form
+- Output only valid JSON"""
     
     @staticmethod
-    async def call_ai_api(word: str) -> AIResponse:
-        """Call external AI API to process a word"""
+    async def call_ai_api(word: str, context_sentence: Optional[str] = None, needs_article: bool = False) -> AIResponse:
+        """Call external AI API to process a word with optional context and article detection"""
         async with httpx.AsyncClient(timeout=settings.AI_API_TIMEOUT) as client:
-            prompt = AIService.create_prompt(word)
+            prompt = AIService.create_prompt(word, context_sentence, needs_article)
             payload = {
-                "model": "mistral-nemo",
+                "model": "qwen2.5-optimized",
                 "prompt": prompt,
                 "stream": False
             }
@@ -67,10 +76,25 @@ Accuracy requirements
                 raise Exception(f"Missing 'response' field in AI API response for word: {word}")
             except Exception as e:
                 raise Exception(f"AI API call failed for word: {word} - {str(e)}")
+            
+        # Add this after getting the response but before parsing
+        print(f"=== DEBUG: Raw AI Response ===")
+        print(f"Status: {response.status_code}")
+        print(f"Full response: {response.text}")
+        print(f"=== END DEBUG ===")
+
+        full_response = response.json()
+        response_content = full_response["response"]
+
+        print(f"=== DEBUG: Response Content ===")
+        print(f"Response content: '{response_content}'")
+        print(f"Content type: {type(response_content)}")
+        print(f"Content length: {len(response_content) if response_content else 'None'}")
+        print(f"=== END DEBUG ===")
     
     @staticmethod
     async def process_word_async(word_id: int, word_data: WordCreate, request_id: str):
-        """Process a single word through AI + translation pipeline"""
+        """Process a single word through AI + translation pipeline with context support"""
         try:
             # Update status to processing
             with get_db_connection() as conn:
@@ -82,8 +106,12 @@ Accuracy requirements
                 """, (word_id,))
                 conn.commit()
             
-            # Step 1: Call AI API to get German sentence and plural
-            ai_response = await AIService.call_ai_api(word_data.word)
+            # Step 1: Call AI API to get German sentence and plural (with context and article detection)
+            ai_response = await AIService.call_ai_api(
+                word_data.word, 
+                word_data.context_sentence,
+                word_data.needs_article
+            )
             
             # Step 2: Translate German sentence to English
             nl_sentence = await TranslationService.translate_text(
@@ -106,18 +134,19 @@ Accuracy requirements
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (
                     word_data.word, word_data.date,
-                    word_data.word,  # tl_word (German word)
-                    nl_word,         # nl_word (English word)
+                    ai_response.tl_word,  # tl_word (German word with/without article)
+                    nl_word,              # nl_word (English word)
                     ai_response.tl_sentence,  # tl_sentence (German sentence)
-                    nl_sentence,     # nl_sentence (English sentence)
-                    ai_response.tl_plural     # tl_plural (German plural)
+                    nl_sentence,          # nl_sentence (English sentence)
+                    ai_response.tl_plural # tl_plural (German plural)
                 ))
                 
                 # Delete from pending_words
                 cursor.execute("DELETE FROM pending_words WHERE id = ?", (word_id,))
                 conn.commit()
                 
-            print(f"Successfully processed word: {word_data.word} (Request: {request_id})")
+            context_info = f" (with context)" if word_data.context_sentence else ""
+            print(f"Successfully processed word: {word_data.word}{context_info} (Request: {request_id})")
             
         except Exception as e:
             # Update status to failed
@@ -130,11 +159,12 @@ Accuracy requirements
                 """, (word_id,))
                 conn.commit()
             
-            print(f"Failed to process word: {word_data.word} - {str(e)} (Request: {request_id})")
+            context_info = f" (with context)" if word_data.context_sentence else ""
+            print(f"Failed to process word: {word_data.word}{context_info} - {str(e)} (Request: {request_id})")
     
     @staticmethod
     async def process_word_list_async(word_ids: List[int], word_list: List[WordCreate], request_id: str):
-        """Process multiple words asynchronously with concurrency control"""
+        """Process multiple words asynchronously with concurrency control and context support"""
         # Limit concurrent processing to prevent overwhelming the AI/translation services
         semaphore = asyncio.Semaphore(3)  # Max 3 concurrent processes
         

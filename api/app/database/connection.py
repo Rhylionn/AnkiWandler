@@ -14,6 +14,8 @@ def init_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             word TEXT NOT NULL,
             date TEXT NOT NULL,
+            context_sentence TEXT,
+            needs_article BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             processing_status TEXT DEFAULT 'pending'
         )
