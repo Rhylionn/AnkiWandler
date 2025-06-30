@@ -22,6 +22,7 @@ def init_database():
     """)
     
     # Processed words table (AI + translation processed words)
+    # Updated to explicitly allow NULL for tl_plural
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS processed_words (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +32,7 @@ def init_database():
             nl_word TEXT NOT NULL,
             tl_sentence TEXT NOT NULL,
             nl_sentence TEXT NOT NULL,
-            tl_plural TEXT,
+            tl_plural TEXT NULL,
             processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)

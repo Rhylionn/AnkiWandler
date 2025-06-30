@@ -36,14 +36,20 @@ class ProcessedWordResponse(BaseModel):
     nl_word: str
     tl_sentence: str
     nl_sentence: str
-    tl_plural: Optional[str]
+    tl_plural: Optional[str] = None  # Made optional for non-nouns
     processed_at: str
 
 # Internal AI processing schemas (not exposed via API)
+class WordClassification(BaseModel):
+    is_noun: bool
+
 class AIResponse(BaseModel):
     tl_word: str
     tl_sentence: str
-    tl_plural: Optional[str] = None
+    tl_plural: Optional[str] = None  # Made optional for non-nouns
+
+class SimpleAIResponse(BaseModel):
+    tl_sentence: str
 
 class TranslationRequest(BaseModel):
     text: str
