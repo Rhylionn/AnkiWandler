@@ -218,7 +218,7 @@ class DataHandler:
                         'TL Sentence': word.get('tl_sentence', ''),
                         'NL Word': word.get('nl_word', ''),
                         'NL Sentence': word.get('nl_sentence', ''),
-                        'TL Plural': word.get('tl_plural', ''),
+                        'TL Plural': word.get('tl_plural', '') or '',
                         'Add Reverse': 'y'
                     }
                     
