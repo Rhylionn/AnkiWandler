@@ -3,13 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Select Word - Text Collector</title>
-    <link rel="stylesheet" href="../css/word-selector.css" />
+    <title>Select Word - AnkiWandler</title>
+    <link rel="stylesheet" href="word-selector.css" />
   </head>
   <body>
     <div class="container">
+      <!-- Header -->
       <header class="header">
-        <h1 class="title">Text Collector</h1>
+        <h1 class="title">📝 AnkiWandler</h1>
         <p class="subtitle">Click on the word you want to learn</p>
       </header>
 
@@ -24,6 +25,7 @@
       <!-- Error State -->
       <div id="errorState" class="section" style="display: none">
         <div class="error">
+          <div class="error-icon">⚠️</div>
           <h3>Unable to Load Selection</h3>
           <p id="errorMessage">No text selection found</p>
         </div>
@@ -32,29 +34,41 @@
       <!-- Success State -->
       <div id="successState" class="section" style="display: none">
         <div class="success">
-          <h3>✅ Word Added Successfully!</h3>
-          <p id="successMessage"></p>
+          <div class="success-icon">✅</div>
+          <h3>Word Added Successfully!</h3>
+          <p id="successMessage">Word has been added to your collection</p>
           <p class="auto-close">
-            Closing in <span id="countdown">2</span> seconds
+            Closing in <span id="countdown">3</span> seconds
           </p>
         </div>
       </div>
 
       <!-- Main Content -->
       <div id="mainContent" class="section" style="display: none">
+        <!-- Selected Text Display -->
+        <div class="content-section">
+          <h3>Selected Text</h3>
+          <div class="selected-text" id="selectedText"></div>
+        </div>
+
+        <!-- Word Selection -->
         <div class="content-section">
           <h3>Available Words</h3>
-          <div class="words-container" id="wordsContainer"></div>
+          <div class="words-container" id="wordsContainer">
+            <!-- Words will be populated here -->
+          </div>
         </div>
-      </div>
 
-      <!-- Action Buttons -->
-      <div class="actions">
-        <button class="btn btn-danger" id="cancelBtn">Cancel</button>
-        <button class="btn btn-success" id="acceptBtn" disabled>Accept</button>
+        <!-- Action Buttons -->
+        <div class="actions">
+          <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+          <button class="btn btn-primary" id="acceptBtn" disabled>
+            <span class="btn-text">Select a word</span>
+          </button>
+        </div>
       </div>
     </div>
 
-    <script src="../js/word-selector.js"></script>
+    <script src="word-selector.js" type="module"></script>
   </body>
 </html>

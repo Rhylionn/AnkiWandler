@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AnkiWandler Manager</title>
+    <link rel="stylesheet" href="manager.css" />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-content">
+          <h1 class="title">📝 AnkiWandler Manager</h1>
+          <p class="subtitle">Manage your language learning collection</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" id="syncBtn">
+            <span class="btn-icon">🔄</span>
+            Sync to Server
+          </button>
+        </div>
+      </header>
+
+      <!-- Navigation -->
+      <nav class="nav">
+        <button class="nav-item active" data-section="words">
+          <span class="nav-icon">📚</span>
+          Words
+        </button>
+        <button class="nav-item" data-section="stats">
+          <span class="nav-icon">📊</span>
+          Statistics
+        </button>
+        <button class="nav-item" data-section="settings">
+          <span class="nav-icon">⚙️</span>
+          Settings
+        </button>
+      </nav>
+
+      <!-- Words Section -->
+      <section class="section active" id="wordsSection">
+        <!-- Controls -->
+        <div class="controls">
+          <div class="search-container">
+            <input
+              type="text"
+              class="search-input"
+              id="searchInput"
+              placeholder="Search words..."
+            />
+            <span class="search-icon">🔍</span>
+          </div>
+          <div class="filter-container">
+            <select class="filter-select" id="typeFilter">
+              <option value="">All types</option>
+              <option value="direct">Direct</option>
+              <option value="context">Context</option>
+            </select>
+            <select class="filter-select" id="syncFilter">
+              <option value="">All status</option>
+              <option value="synced">Synced</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+          <div class="bulk-actions">
+            <button class="btn btn-secondary" id="selectAllBtn">
+              Select All
+            </button>
+            <button class="btn btn-danger" id="deleteSelectedBtn" disabled>
+              Delete Selected
+            </button>
+          </div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+          <div class="stat-item">
+            <span class="stat-label">Total:</span>
+            <span class="stat-value" id="totalCount">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Direct:</span>
+            <span class="stat-value" id="directCount">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Context:</span>
+            <span class="stat-value" id="contextCount">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Pending:</span>
+            <span class="stat-value" id="pendingCount">0</span>
+          </div>
+        </div>
+
+        <!-- Words List -->
+        <div class="words-container">
+          <div class="words-list" id="wordsList">
+            <!-- Words will be populated here -->
+          </div>
+
+          <div class="empty-state" id="emptyState" style="display: none">
+            <div class="empty-icon">📝</div>
+            <h3>No words found</h3>
+            <p>
+              Start collecting words by selecting text on web pages and using
+              the context menu.
+            </p>
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination" style="display: none">
+          <button class="btn btn-secondary" id="prevBtn" disabled>
+            Previous
+          </button>
+          <span class="page-info" id="pageInfo">Page 1 of 1</span>
+          <button class="btn btn-secondary" id="nextBtn" disabled>Next</button>
+        </div>
+      </section>
+
+      <!-- Statistics Section -->
+      <section class="section" id="statsSection">
+        <div class="stats-grid">
+          <div class="stats-card">
+            <h3>Collection Overview</h3>
+            <div class="chart-container">
+              <canvas id="collectionChart"></canvas>
+            </div>
+          </div>
+
+          <div class="stats-card">
+            <h3>Sync Statistics</h3>
+            <div class="stats-list">
+              <div class="stats-item">
+                <span class="stats-key">Last Sync:</span>
+                <span class="stats-value" id="lastSyncTime">Never</span>
+              </div>
+              <div class="stats-item">
+                <span class="stats-key">Total Syncs:</span>
+                <span class="stats-value" id="syncCount">0</span>
+              </div>
+              <div class="stats-item">
+                <span class="stats-key">Pending Words:</span>
+                <span class="stats-value" id="pendingSyncCount">0</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats-card">
+            <h3>Storage Usage</h3>
+            <div class="stats-list">
+              <div class="stats-item">
+                <span class="stats-key">Total Size:</span>
+                <span class="stats-value" id="totalStorage">0 KB</span>
+              </div>
+              <div class="stats-item">
+                <span class="stats-key">Words Data:</span>
+                <span class="stats-value" id="wordsStorage">0 KB</span>
+              </div>
+              <div class="stats-item">
+                <span class="stats-key">Settings:</span>
+                <span class="stats-value" id="settingsStorage">0 KB</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings Section -->
+      <section class="section" id="settingsSection">
+        <div class="settings-container">
+          <div class="settings-group">
+            <h3>Server Configuration</h3>
+            <p class="settings-description">
+              Configure your API server for word processing and synchronization.
+            </p>
+
+            <div class="form-group">
+              <label for="serverUrl">Server URL</label>
+              <input
+                type="url"
+                id="serverUrl"
+                placeholder="http://localhost:8000"
+                class="form-input"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="apiKey">API Key</label>
+              <input
+                type="password"
+                id="apiKey"
+                placeholder="Enter your API key"
+                class="form-input"
+              />
+              <button
+                type="button"
+                class="btn btn-secondary btn-small"
+                id="showApiKey"
+              >
+                Show
+              </button>
+            </div>
+
+            <div class="form-group">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                id="testConnectionBtn"
+              >
+                Test Connection
+              </button>
+              <div class="connection-status" id="connectionStatus"></div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h3>Sync Settings</h3>
+            <p class="settings-description">
+              Control how and when your words are synchronized.
+            </p>
+
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="autoSync" />
+                <span class="checkmark"></span>
+                Enable automatic sync
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label for="syncInterval">Sync Interval (minutes)</label>
+              <select id="syncInterval" class="form-select">
+                <option value="1">1 minute</option>
+                <option value="5" selected>5 minutes</option>
+                <option value="10">10 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="60">1 hour</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h3>Storage Settings</h3>
+            <p class="settings-description">
+              Manage your local storage and data retention.
+            </p>
+
+            <div class="form-group">
+              <label for="maxWords">Maximum stored words</label>
+              <select id="maxWords" class="form-select">
+                <option value="500">500 words</option>
+                <option value="1000" selected>1000 words</option>
+                <option value="2000">2000 words</option>
+                <option value="5000">5000 words</option>
+              </select>
+            </div>
+
+            <div class="form-group danger-zone">
+              <h4>Danger Zone</h4>
+              <p>These actions cannot be undone.</p>
+              <button type="button" class="btn btn-danger" id="clearAllBtn">
+                Clear All Words
+              </button>
+              <button
+                type="button"
+                class="btn btn-danger"
+                id="resetSettingsBtn"
+              >
+                Reset Settings
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button type="button" class="btn btn-primary" id="saveSettingsBtn">
+              Save Settings
+            </button>
+            <button type="button" class="btn btn-secondary" id="exportDataBtn">
+              Export Data
+            </button>
+            <button type="button" class="btn btn-secondary" id="importDataBtn">
+              Import Data
+            </button>
+            <input
+              type="file"
+              id="importFileInput"
+              accept=".json"
+              style="display: none"
+            />
+          </div>
+        </div>
+      </section>
+
+      <!-- Status Messages -->
+      <div class="toast-container" id="toastContainer"></div>
+
+      <!-- Loading Overlay -->
+      <div class="loading-overlay" id="loadingOverlay" style="display: none">
+        <div class="spinner"></div>
+        <span id="loadingText">Processing...</span>
+      </div>
+
+      <!-- Confirmation Modal -->
+      <div class="modal-overlay" id="modalOverlay" style="display: none">
+        <div class="modal">
+          <div class="modal-header">
+            <h3 id="modalTitle">Confirm Action</h3>
+            <button class="modal-close" id="modalClose">×</button>
+          </div>
+          <div class="modal-body">
+            <p id="modalMessage">Are you sure you want to proceed?</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" id="modalCancel">Cancel</button>
+            <button class="btn btn-primary" id="modalConfirm">Confirm</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="manager.js" type="module"></script>
+  </body>
+</html>
