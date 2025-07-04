@@ -1,7 +1,8 @@
+# app/services/ai_service.py
 import asyncio
 import httpx
 import json
-from typing import List, Optional
+from typing import Optional
 from app.schemas.word import WordCreate, AIResponse, SimpleAIResponse, WordClassification
 from app.database.connection import get_db_connection
 from app.config.settings import settings
@@ -73,9 +74,12 @@ Requirements:
     }
     
     @staticmethod
-    async def _make_ai_request(prompt: str, response_model: type):
-        """Unified AI API call method"""
-        async with httpx.AsyncClient(timeout=settings.AI_API_TIMEOUT) as client:
+    async def _make_ai_request(prompt: str, response_model: type, timeout: int = None):
+        """Unified AI API call method with configurable timeout"""
+        if timeout is None:
+            timeout = settings.AI_API_TIMEOUT
+        
+        async with httpx.AsyncClient(timeout=timeout) as client:
             payload = {
                 "model": "qwen2.5-optimized", 
                 "prompt": prompt,
@@ -94,9 +98,9 @@ Requirements:
                 return response_model(**ai_data)
                 
             except httpx.TimeoutException:
-                raise Exception(f"AI API timeout")
+                raise Exception(f"AI API timeout after {timeout}s")
             except httpx.HTTPStatusError as e:
-                raise Exception(f"AI API error {e.response.status_code}")
+                raise Exception(f"AI API HTTP error {e.response.status_code}")
             except json.JSONDecodeError as e:
                 raise Exception(f"Invalid JSON in AI response: {str(e)}")
             except KeyError:
@@ -128,32 +132,22 @@ Requirements:
     @staticmethod
     async def classify_word_type(word: str, context_sentence: Optional[str] = None) -> WordClassification:
         prompt = AIService._format_prompt("classification", word, context_sentence)
-        return await AIService._make_ai_request(prompt, WordClassification)
+        return await AIService._make_ai_request(prompt, WordClassification, timeout=settings.AI_API_TIMEOUT)
     
     @staticmethod
     async def process_noun(word: str, context_sentence: Optional[str] = None, needs_article: bool = False) -> AIResponse:
         prompt = AIService._format_prompt("noun", word, context_sentence, needs_article=needs_article)
-        return await AIService._make_ai_request(prompt, AIResponse)
+        return await AIService._make_ai_request(prompt, AIResponse, timeout=settings.AI_API_TIMEOUT)
     
     @staticmethod
     async def process_simple_word(word: str, context_sentence: Optional[str] = None) -> SimpleAIResponse:
         prompt = AIService._format_prompt("simple", word, context_sentence)
-        return await AIService._make_ai_request(prompt, SimpleAIResponse)
-    
-    @staticmethod
-    async def _update_word_status(word_id: int, status: str):
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE pending_words 
-                SET processing_status = ? 
-                WHERE id = ?
-            """, (status, word_id))
-            conn.commit()
+        return await AIService._make_ai_request(prompt, SimpleAIResponse, timeout=settings.AI_API_TIMEOUT)
     
     @staticmethod
     async def _save_processed_word(word_id: int, word_data: WordCreate, tl_word: str, tl_sentence: str, 
                                  nl_word: str, nl_sentence: str, tl_plural: Optional[str] = None):
+        """Save processed word and remove from pending"""
         with get_db_connection() as conn:
             cursor = conn.cursor()
             
@@ -176,9 +170,6 @@ Requirements:
     async def process_word_async(word_id: int, word_data: WordCreate, request_id: str):
         """Process a single word through the complete AI + translation pipeline"""
         try:
-            # Update status to processing
-            await AIService._update_word_status(word_id, 'processing')
-            
             # Step 1: Classify word type
             classification = await AIService.classify_word_type(
                 word_data.word, word_data.context_sentence
@@ -220,29 +211,7 @@ Requirements:
             print(f"✅ Processed {word_type}: {word_data.word}{context_info} (Request: {request_id})")
             
         except Exception as e:
-            # Update status to failed
-            await AIService._update_word_status(word_id, 'failed')
-            
-            # Log failure
+            # Re-raise exception to be handled by queue worker
             context_info = " (with context)" if word_data.context_sentence else ""
             print(f"❌ Failed to process: {word_data.word}{context_info} - {str(e)} (Request: {request_id})")
-    
-    @staticmethod
-    async def process_word_list_async(word_ids: List[int], word_list: List[WordCreate], request_id: str):
-        """Process multiple words concurrently with controlled concurrency"""
-        # Limit concurrent processing
-        semaphore = asyncio.Semaphore(3)
-        
-        async def process_with_semaphore(word_id: int, word_data: WordCreate):
-            async with semaphore:
-                await AIService.process_word_async(word_id, word_data, request_id)
-        
-        # Process all words concurrently
-        tasks = [
-            process_with_semaphore(word_id, word_data)
-            for word_id, word_data in zip(word_ids, word_list)
-        ]
-        
-        await asyncio.gather(*tasks, return_exceptions=True)
-        
-        print(f"🎉 Batch processing completed for request: {request_id}")
+            raise e

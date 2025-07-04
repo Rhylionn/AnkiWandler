@@ -1,15 +1,12 @@
 # app/services/word_service.py
-import asyncio
-import uuid
-from typing import List, Optional
+from typing import List
 from app.database.connection import get_db_connection
-from app.schemas.word import WordCreate, WordListCreate, PendingWordResponse, ProcessedWordResponse, RetryResponse
-from app.services.ai_service import AIService
+from app.schemas.word import WordCreate, WordListCreate, PendingWordResponse, ProcessedWordResponse
 
 class WordService:
     @staticmethod
     def add_word(word_data: WordCreate) -> dict:
-        """Add a single word with context support and start AI processing pipeline"""
+        """Add a single word to the queue for processing"""
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -25,25 +22,24 @@ class WordService:
             word_id = cursor.lastrowid
             conn.commit()
             
-            # Start AI processing pipeline asynchronously
-            request_id = str(uuid.uuid4())
-            asyncio.create_task(AIService.process_word_async(word_id, word_data, request_id))
-            
-            context_info = f" (with context)" if word_data.context_sentence else ""
-            
-            return {
-                "message": "Word added and processing started",
-                "word_id": word_id,
-                "word": word_data.word,
-                "request_id": request_id,
-                "processing_started": True,
-                "context_provided": bool(word_data.context_sentence),
-                "needs_article": word_data.needs_article
-            }
+        # Signal queue worker that new work is available
+        from app.services.queue_service import queue_worker
+        queue_worker.signal_work_available()
+        
+        context_info = " (with context)" if word_data.context_sentence else ""
+        
+        return {
+            "message": "Word added to processing queue",
+            "word_id": word_id,
+            "word": word_data.word,
+            "queued": True,
+            "context_provided": bool(word_data.context_sentence),
+            "needs_article": word_data.needs_article
+        }
     
     @staticmethod
     def add_word_list(word_list_data: WordListCreate) -> dict:
-        """Add multiple words with context support and start batch AI processing pipeline"""
+        """Add multiple words to the queue for processing"""
         word_ids = []
         context_count = 0
         direct_count = 0
@@ -76,28 +72,27 @@ class WordService:
             
             conn.commit()
         
-        # Start batch AI processing pipeline asynchronously
-        request_id = str(uuid.uuid4())
-        asyncio.create_task(AIService.process_word_list_async(word_ids, word_list_data.words, request_id))
+        # Signal queue worker that new work is available
+        from app.services.queue_service import queue_worker
+        queue_worker.signal_work_available()
         
         return {
-            "message": f"Batch word insertion completed and processing started",
+            "message": f"Words added to processing queue",
             "total_words": len(word_list_data.words),
             "context_words": context_count,
             "direct_words": direct_count,
-            "processing_started": True,
-            "request_id": request_id
+            "queued": True
         }
     
     @staticmethod
     def get_pending_words(limit: int = 100) -> List[PendingWordResponse]:
-        """Get pending words from database with context support"""
+        """Get pending words from database"""
         with get_db_connection() as conn:
             cursor = conn.cursor()
             
             query = """
                 SELECT id, word, date, created_at, processing_status, 
-                       context_sentence, needs_article 
+                       context_sentence, needs_article, retry_count
                 FROM pending_words 
                 ORDER BY created_at DESC LIMIT ?
             """
@@ -146,67 +141,6 @@ class WordService:
                     processed_at=row[8]
                 ) for row in rows
             ]
-    
-    @staticmethod
-    def retry_failed_words() -> RetryResponse:
-        """Retry processing all failed words with context support"""
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Get all failed words with context information
-            cursor.execute("""
-                SELECT id, word, date, context_sentence, needs_article 
-                FROM pending_words 
-                WHERE processing_status = 'failed'
-            """)
-            failed_words = cursor.fetchall()
-            
-            if not failed_words:
-                return RetryResponse(
-                    message="No failed words to retry",
-                    count=0,
-                    request_id="",
-                    processing_started=False
-                )
-            
-            # Reset status to pending
-            cursor.execute("""
-                UPDATE pending_words 
-                SET processing_status = 'pending' 
-                WHERE processing_status = 'failed'
-            """)
-            conn.commit()
-        
-        # Create word objects with context support and start processing
-        word_ids = []
-        words = []
-        context_count = 0
-        
-        for row in failed_words:
-            word_ids.append(row[0])
-            word_obj = WordCreate(
-                word=row[1],
-                date=row[2],
-                context_sentence=row[3],
-                needs_article=bool(row[4]) if row[4] is not None else False
-            )
-            words.append(word_obj)
-            
-            if word_obj.needs_article:
-                context_count += 1
-        
-        # Start batch processing
-        request_id = str(uuid.uuid4())
-        asyncio.create_task(AIService.process_word_list_async(word_ids, words, request_id))
-        
-        direct_count = len(failed_words) - context_count
-        
-        return RetryResponse(
-            message=f"Retry started for {len(failed_words)} failed words ({context_count} context, {direct_count} direct)",
-            count=len(failed_words),
-            request_id=request_id,
-            processing_started=True
-        )
     
     @staticmethod
     def delete_pending_word(word_id: int) -> dict:

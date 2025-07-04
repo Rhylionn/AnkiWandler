@@ -16,8 +16,7 @@ class WordListCreate(BaseModel):
 class WordListResponse(BaseModel):
     message: str
     total_words: int
-    processing_started: bool
-    request_id: str
+    queued: bool
 
 class PendingWordResponse(BaseModel):
     id: int
@@ -36,7 +35,7 @@ class ProcessedWordResponse(BaseModel):
     nl_word: str
     tl_sentence: str
     nl_sentence: str
-    tl_plural: Optional[str] = None  # Made optional for non-nouns
+    tl_plural: Optional[str] = None
     processed_at: str
 
 # Internal AI processing schemas (not exposed via API)
@@ -46,7 +45,7 @@ class WordClassification(BaseModel):
 class AIResponse(BaseModel):
     tl_word: str
     tl_sentence: str
-    tl_plural: Optional[str] = None  # Made optional for non-nouns
+    tl_plural: Optional[str] = None
 
 class SimpleAIResponse(BaseModel):
     tl_sentence: str
@@ -57,10 +56,3 @@ class TranslationRequest(BaseModel):
 
 class TranslationResponse(BaseModel):
     translated_text: str
-
-# Management schemas
-class RetryResponse(BaseModel):
-    message: str
-    count: int
-    request_id: str
-    processing_started: bool

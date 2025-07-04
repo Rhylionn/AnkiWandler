@@ -17,12 +17,12 @@ def init_database():
             context_sentence TEXT,
             needs_article BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            processing_status TEXT DEFAULT 'pending'
+            processing_status TEXT DEFAULT 'pending',
+            retry_count INTEGER DEFAULT 0
         )
     """)
     
     # Processed words table (AI + translation processed words)
-    # Updated to explicitly allow NULL for tl_plural
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS processed_words (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
