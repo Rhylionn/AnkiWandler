@@ -73,8 +73,8 @@
           <div class="settings-section">
             <h2 class="section-title">Server Configuration</h2>
             <p class="section-description">
-              Configure your server connection for syncing collected words with
-              AI processing.
+              Configure your HTTPS server connection for syncing collected words
+              with AI processing.
             </p>
 
             <div class="form-group">
@@ -85,8 +85,18 @@
                 type="text"
                 class="form-input"
                 id="serverAddress"
-                placeholder="localhost"
+                placeholder="ankiwandler-api.matrhorn.xyz"
               />
+              <small
+                style="
+                  color: #6b7280;
+                  font-size: 12px;
+                  margin-top: 4px;
+                  display: block;
+                "
+              >
+                Enter just the domain name (without http:// or https://)
+              </small>
             </div>
 
             <div class="form-group">
@@ -95,8 +105,18 @@
                 type="number"
                 class="form-input"
                 id="serverPort"
-                placeholder="8000"
+                placeholder="443"
               />
+              <small
+                style="
+                  color: #6b7280;
+                  font-size: 12px;
+                  margin-top: 4px;
+                  display: block;
+                "
+              >
+                Use 443 for HTTPS, 80 for HTTP, or your custom port
+              </small>
             </div>
 
             <div class="form-group">
@@ -107,6 +127,16 @@
                 id="apiToken"
                 placeholder="Enter your API token"
               />
+              <small
+                style="
+                  color: #6b7280;
+                  font-size: 12px;
+                  margin-top: 4px;
+                  display: block;
+                "
+              >
+                Your secure API key for authentication
+              </small>
             </div>
 
             <div class="form-actions">
@@ -118,6 +148,27 @@
 
             <div class="status" id="connectionStatus">
               <span id="statusText"></span>
+            </div>
+
+            <!-- Add connection info -->
+            <div
+              style="
+                background: #f0f9ff;
+                border: 1px solid #bae6fd;
+                border-radius: 6px;
+                padding: 12px;
+                margin-top: 16px;
+              "
+            >
+              <h4 style="color: #0369a1; font-size: 13px; margin-bottom: 8px">
+                📡 Connection Info
+              </h4>
+              <p style="color: #0369a1; font-size: 12px; line-height: 1.4">
+                Your extension will connect to: <br />
+                <strong>https://ankiwandler-api.matrhorn.xyz</strong><br />
+                Make sure your server supports HTTPS and CORS is properly
+                configured.
+              </p>
             </div>
           </div>
 

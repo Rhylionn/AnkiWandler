@@ -294,22 +294,42 @@ async function handleMessage(request, sender, sendResponse) {
 
 // Sync functionality
 async function syncToServer() {
+  console.log("🚀 Starting sync process...");
+
   try {
+    // Step 1: Get settings
+    console.log("📋 Getting settings...");
     const settings = await chrome.storage.local.get([
       "serverAddress",
       "serverPort",
       "apiToken",
     ]);
 
+    console.log("⚙️ Settings retrieved:", {
+      serverAddress: settings.serverAddress,
+      serverPort: settings.serverPort,
+      apiToken: settings.apiToken ? "***PROVIDED***" : "❌ MISSING",
+    });
+
     if (!settings.serverAddress || !settings.apiToken) {
-      throw new Error("Server configuration missing");
+      throw new Error(
+        "Server configuration missing. Please configure server settings."
+      );
     }
 
+    // Step 2: Get collection
+    console.log("📦 Getting collection...");
     const collection = await chrome.storage.local.get(["collection"]);
     const items = collection.collection || [];
     const unsyncedItems = items.filter((item) => !item.synced);
 
+    console.log("📊 Collection stats:", {
+      totalItems: items.length,
+      unsyncedItems: unsyncedItems.length,
+    });
+
     if (unsyncedItems.length === 0) {
+      console.log("✅ No items to sync");
       return {
         success: true,
         message: "No items to sync",
@@ -317,7 +337,8 @@ async function syncToServer() {
       };
     }
 
-    // Prepare words for API
+    // Step 3: Prepare words
+    console.log("🔄 Preparing words for API...");
     const words = unsyncedItems.map((item) => ({
       word: item.text,
       date: item.date.split("T")[0],
@@ -325,48 +346,209 @@ async function syncToServer() {
       needs_article: item.needsArticle,
     }));
 
-    const serverUrl = `http://${settings.serverAddress}:${
-      settings.serverPort || 8000
-    }`;
+    console.log("📝 Prepared words:", words);
 
-    const response = await fetch(`${serverUrl}/api/v1/words/add_list`, {
+    // Step 4: Build URL
+    console.log("🔗 Building server URL...");
+    const serverUrl = buildServerUrl(
+      settings.serverAddress,
+      settings.serverPort
+    );
+    const apiEndpoint = `${serverUrl}/api/v1/words/add_list`;
+
+    console.log("🌐 Final API endpoint:", apiEndpoint);
+
+    // Step 5: Prepare request
+    const requestBody = JSON.stringify({ words });
+    const requestHeaders = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${settings.apiToken}`,
+      Accept: "application/json",
+    };
+
+    console.log("📨 Request details:", {
       method: "POST",
+      url: apiEndpoint,
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${settings.apiToken}`,
+        ...requestHeaders,
+        Authorization: "Bearer ***HIDDEN***",
       },
-      body: JSON.stringify({ words }),
+      bodyLength: requestBody.length,
     });
 
-    if (!response.ok) {
-      throw new Error(`Server error: ${response.status}`);
+    // Step 6: Make request with timeout
+    console.log("🚀 Making fetch request...");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.log("⏰ Request timeout triggered");
+      controller.abort();
+    }, 30000);
+
+    let response;
+    try {
+      response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: requestHeaders,
+        body: requestBody,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      console.log("📡 Fetch completed, response received");
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      console.error("❌ Fetch failed:", fetchError);
+
+      if (fetchError.name === "AbortError") {
+        throw new Error("Request timeout - server took too long to respond");
+      }
+
+      if (fetchError.message.includes("Failed to fetch")) {
+        console.error("💔 Network error details:", {
+          message: fetchError.message,
+          stack: fetchError.stack,
+          name: fetchError.name,
+        });
+        throw new Error(
+          "Network error - Cannot reach server. Check URL and internet connection."
+        );
+      }
+
+      throw fetchError;
     }
 
-    // Remove synced items from collection
+    // Step 7: Check response
+    console.log("📊 Response details:", {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      url: response.url,
+      type: response.type,
+    });
+
+    // Log response headers
+    console.log("📋 Response headers:");
+    for (const [key, value] of response.headers.entries()) {
+      console.log(`  ${key}: ${value}`);
+    }
+
+    if (!response.ok) {
+      let errorMessage = `Server error ${response.status}: ${response.statusText}`;
+
+      try {
+        const errorData = await response.text();
+        console.log("❌ Error response body:", errorData);
+        if (errorData) {
+          errorMessage += ` - ${errorData}`;
+        }
+      } catch (e) {
+        console.log("⚠️ Could not read error response body");
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    // Step 8: Parse response
+    console.log("📖 Parsing response...");
+    let responseData;
+    try {
+      responseData = await response.json();
+      console.log("✅ Response data:", responseData);
+    } catch (parseError) {
+      console.error("❌ Failed to parse response JSON:", parseError);
+      throw new Error("Invalid JSON response from server");
+    }
+
+    // Step 9: Update local storage
+    console.log("💾 Updating local storage...");
     const syncedIds = unsyncedItems.map((item) => item.id);
     const remainingItems = items.filter((item) => !syncedIds.includes(item.id));
 
     await chrome.storage.local.set({ collection: remainingItems });
     await updateBadge();
 
+    console.log("✅ Local storage updated, badge updated");
+
     const contextCount = unsyncedItems.filter(
       (item) => item.needsArticle
     ).length;
     const directCount = unsyncedItems.length - contextCount;
 
+    const successMessage = `Synced ${directCount} direct + ${contextCount} context words`;
+    console.log("🎉 Sync completed successfully:", successMessage);
+
     return {
       success: true,
-      message: `Synced ${directCount} direct + ${contextCount} context words`,
+      message: successMessage,
       count: unsyncedItems.length,
     };
   } catch (error) {
-    console.error("Sync error:", error);
+    console.error("💥 Sync error:", error);
+    console.error("📊 Error details:", {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    });
+
     return {
       success: false,
       message: error.message,
       count: 0,
     };
   }
+}
+
+// Enhanced URL building with validation
+function buildServerUrl(serverAddress, serverPort) {
+  console.log("🔧 Building URL from:", { serverAddress, serverPort });
+
+  if (!serverAddress) {
+    throw new Error("Server address is required");
+  }
+
+  // Remove any existing protocol and whitespace
+  let cleanAddress = serverAddress.trim().replace(/^https?:\/\//, "");
+
+  // Remove trailing slashes
+  cleanAddress = cleanAddress.replace(/\/+$/, "");
+
+  console.log("🧹 Cleaned address:", cleanAddress);
+
+  if (!cleanAddress) {
+    throw new Error("Invalid server address");
+  }
+
+  // Determine protocol
+  let protocol = "https://";
+
+  // Use HTTP only for localhost/127.0.0.1 or if explicitly specified
+  if (
+    serverAddress.startsWith("http://") ||
+    cleanAddress.startsWith("localhost") ||
+    cleanAddress.startsWith("127.0.0.1")
+  ) {
+    protocol = "http://";
+  }
+
+  console.log("🔒 Using protocol:", protocol);
+
+  // Build the URL
+  let url = protocol + cleanAddress;
+
+  // Add port if specified and not standard
+  if (
+    serverPort &&
+    !(
+      (protocol === "http://" && serverPort === "80") ||
+      (protocol === "https://" && serverPort === "443")
+    )
+  ) {
+    url += ":" + serverPort;
+    console.log("🔌 Added port:", serverPort);
+  }
+
+  console.log("🌐 Final URL:", url);
+  return url;
 }
 
 // Test server connection

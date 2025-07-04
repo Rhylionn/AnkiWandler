@@ -1,5 +1,5 @@
-// Updated manager script for Text Collector extension
-// Enhanced for universal source tracking (web/pdf)
+// Complete manager script for Text Collector extension
+// Enhanced for universal source tracking (web/pdf) with HTTPS support
 // Fixed storage size calculation and scroll to top on section switch
 
 let currentCollection = [];
@@ -208,7 +208,7 @@ function handleSearch() {
   renderCollection();
 }
 
-// Item actions (edit/delete remain the same as before)
+// Item actions (edit/delete)
 function editItem(id) {
   if (currentEditingId && currentEditingId !== id) {
     saveEdit(currentEditingId);
@@ -373,7 +373,7 @@ async function deleteItem(id) {
   }
 }
 
-// Sync functionality
+// Enhanced sync function with better HTTPS support and error handling
 async function syncToServer() {
   const syncBtn = document.getElementById("syncBtn");
   const originalText = syncBtn.textContent;
@@ -385,19 +385,23 @@ async function syncToServer() {
     const response = await chrome.runtime.sendMessage({ action: "sync" });
 
     if (response.success) {
-      showToast(response.message, "success");
+      showToast(`✅ ${response.message}`, "success");
+
+      // Refresh collection after successful sync
+      await loadCollection();
     } else {
-      showToast(response.message, "error");
+      showToast(`❌ ${response.message}`, "error");
     }
   } catch (error) {
-    showToast("Sync failed: " + error.message, "error");
+    console.error("Sync error:", error);
+    showToast(`❌ Sync failed: ${error.message}`, "error");
   } finally {
     syncBtn.disabled = false;
     syncBtn.textContent = originalText;
   }
 }
 
-// Settings management
+// Settings management with improved HTTPS support
 async function loadSettings() {
   try {
     const result = await chrome.storage.local.get([
@@ -406,9 +410,17 @@ async function loadSettings() {
       "apiToken",
     ]);
 
-    document.getElementById("serverAddress").value = result.serverAddress || "";
-    document.getElementById("serverPort").value = result.serverPort || "8000";
+    // Set default values with your domain
+    document.getElementById("serverAddress").value =
+      result.serverAddress || "ankiwandler-api.matrhorn.xyz";
+    document.getElementById("serverPort").value = result.serverPort || "443";
     document.getElementById("apiToken").value = result.apiToken || "";
+
+    // Add placeholder text to help users
+    document.getElementById("serverAddress").placeholder =
+      "ankiwandler-api.matrhorn.xyz";
+    document.getElementById("serverPort").placeholder =
+      "443 (for HTTPS) or 80 (for HTTP)";
   } catch (error) {
     console.error("Error loading settings:", error);
   }
@@ -419,16 +431,31 @@ async function saveSettings() {
   const serverPort = document.getElementById("serverPort").value.trim();
   const apiToken = document.getElementById("apiToken").value.trim();
 
+  // Validate inputs
+  if (!serverAddress) {
+    showStatus("Server address is required", "error");
+    return;
+  }
+
+  if (!apiToken) {
+    showStatus("API token is required", "error");
+    return;
+  }
+
+  // Clean up server address (remove protocol if user entered it)
+  const cleanServerAddress = serverAddress.replace(/^https?:\/\//, "");
+
   try {
     await chrome.storage.local.set({
-      serverAddress,
-      serverPort: serverPort || "8000",
+      serverAddress: cleanServerAddress,
+      serverPort: serverPort || "443", // Default to HTTPS port
       apiToken,
     });
 
     showStatus("Settings saved successfully", "success");
     showToast("Settings saved", "success");
   } catch (error) {
+    console.error("Error saving settings:", error);
     showStatus("Error saving settings", "error");
     showToast("Error saving settings", "error");
   }
@@ -451,20 +478,24 @@ async function testConnection() {
   showStatus("Testing connection...", "pending");
 
   try {
+    // Clean up server address
+    const cleanServerAddress = serverAddress.replace(/^https?:\/\//, "");
+
     const response = await chrome.runtime.sendMessage({
       action: "testConnection",
-      serverAddress,
-      serverPort: serverPort || "8000",
+      serverAddress: cleanServerAddress,
+      serverPort: serverPort || "443",
       apiToken,
     });
 
     if (response.success) {
-      showStatus("Connection successful!", "success");
+      showStatus("✅ Connection successful!", "success");
     } else {
-      showStatus(response.message, "error");
+      showStatus(`❌ ${response.message}`, "error");
     }
   } catch (error) {
-    showStatus("Connection test failed", "error");
+    console.error("Connection test error:", error);
+    showStatus(`❌ Connection test failed: ${error.message}`, "error");
   } finally {
     testBtn.disabled = false;
     testBtn.textContent = "Test Connection";
@@ -493,6 +524,7 @@ async function clearAllData() {
 
         chrome.runtime.sendMessage({ action: "updateBadge" });
       } catch (error) {
+        console.error("Error clearing data:", error);
         showToast("Error clearing data", "error");
       }
     }
@@ -504,14 +536,16 @@ function showStatus(message, type) {
   const statusDiv = document.getElementById("connectionStatus");
   const statusText = document.getElementById("statusText");
 
-  statusText.textContent = message;
-  statusDiv.className = `status status-${type}`;
-  statusDiv.style.display = "block";
+  if (statusDiv && statusText) {
+    statusText.textContent = message;
+    statusDiv.className = `status status-${type}`;
+    statusDiv.style.display = "block";
 
-  if (type === "success") {
-    setTimeout(() => {
-      statusDiv.style.display = "none";
-    }, 3000);
+    if (type === "success") {
+      setTimeout(() => {
+        statusDiv.style.display = "none";
+      }, 3000);
+    }
   }
 }
 
