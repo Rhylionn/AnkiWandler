@@ -9,3 +9,10 @@ data
 
 # Design
 design
+
+# Docker 
+docker-compose.yml
+.dockerignore
+Dockerfile
+
+AnkiAddon/meta.json

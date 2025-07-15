@@ -214,7 +214,7 @@ class DataHandler:
                     
                     # Set other fields with fallback methods
                     field_mapping = {
-                        'TL Word': DataHandler.color_word(word.get('original_word', '')),
+                        'TL Word': DataHandler.color_word(word.get('tl_word', '')),
                         'TL Sentence': word.get('tl_sentence', ''),
                         'NL Word': word.get('nl_word', ''),
                         'NL Sentence': word.get('nl_sentence', ''),
@@ -450,7 +450,7 @@ class ImportDialog(QDialog):
             self.table.setCellWidget(row, 0, checkbox)
             
             data = [
-                word.get('original_word', ''),
+                word.get('tl_word', ''),
                 word.get('nl_word', ''),
                 word.get('tl_sentence', ''),
                 word.get('nl_sentence', ''),
