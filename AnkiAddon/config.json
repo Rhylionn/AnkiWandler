@@ -1,7 +1,0 @@
-{
-  "server_url": "http://localhost:8000",
-  "api_key": "bd11e81f-9eec-496a-88b8-e977bd9dad99",
-  "deck_name": "Deutsch - own deck",
-  "auto_sync_on_startup": true,
-  "auto_pull_on_startup": true
-}
