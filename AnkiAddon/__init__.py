@@ -6,6 +6,7 @@ Handles card upload, word import, and flexible data collection
 
 from aqt import mw, gui_hooks
 from aqt.utils import showInfo
+from aqt.qt import QTimer
 
 # Import all components
 from .config import ConfigManager
@@ -27,23 +28,23 @@ class AnkiExtension:
         self.notifications = NotificationManager()
         
         self.startup_completed = False
+        self.startup_timer = None
+        
         self._setup_data_collectors()
         self._setup_menus()
         self._setup_hooks()
+
+    def closeEvent(self, event):
+        """Ensure proper cleanup on close"""
+        super().closeEvent(event)
     
     def _setup_data_collectors(self):
         """Register all available data collectors"""
-        # Register card collector (core functionality)
         card_collector = CardDataCollector(self.card_processor)
         self.data_collector.register_collector(card_collector)
-        
-        # Future collectors can be registered here
-        # self.data_collector.register_collector(ReviewDataCollector())
-        # self.data_collector.register_collector(DeckDataCollector())
     
     def _setup_menus(self):
         """Setup menu items"""
-        # Add menu items to Tools menu
         mw.form.menuTools.addSeparator()
         
         settings_action = mw.form.menuTools.addAction("Word Management Settings")
@@ -57,8 +58,19 @@ class AnkiExtension:
     
     def _setup_hooks(self):
         """Setup Anki hooks"""
-        # Hook into main window initialization
         gui_hooks.main_window_did_init.append(self.on_startup)
+        
+        # Timer cleanup to prevent macOS crash
+        try:
+            gui_hooks.profile_will_close.append(self._cleanup_timer)
+        except AttributeError:
+            gui_hooks.main_window_will_close.append(self._cleanup_timer)
+    
+    def _cleanup_timer(self):
+        """Clean up timer to prevent crash on quit"""
+        if self.startup_timer:
+            self.startup_timer.stop()
+            self.startup_timer = None
     
     def on_startup(self):
         """Handle extension startup - called when Anki main window is ready"""
@@ -76,11 +88,15 @@ class AnkiExtension:
             return
         
         # Perform startup operations after a short delay
-        from aqt.qt import QTimer
-        QTimer.singleShot(2000, self.perform_startup_operations)
+        self.startup_timer = QTimer()
+        self.startup_timer.setSingleShot(True)
+        self.startup_timer.timeout.connect(self.perform_startup_operations)
+        self.startup_timer.start(2000)
     
     def perform_startup_operations(self):
         """Perform auto-operations on startup"""
+        self.startup_timer = None
+        
         results = {
             'imported': 0,
             'uploaded': 0,
@@ -110,7 +126,6 @@ class AnkiExtension:
         try:
             success, words = self.api.get_words()
             if success and words:
-                # Show import dialog
                 dialog = ImportDialog(words, self.config, self.card_processor, self.api)
                 dialog.exec()
                 return len(words)
@@ -122,21 +137,16 @@ class AnkiExtension:
     def _auto_upload_cards(self) -> int:
         """Auto-upload cards on startup"""
         try:
-            # Get card collector and set deck name
             card_collector = self.data_collector.get_collector('cards')
             if card_collector:
                 deck_name = self.config.get('deck_name', 'Default')
                 card_collector.set_deck_name(deck_name)
                 
-                # Collect card data
                 card_data = card_collector.collect()
                 cards = card_data.get('cards', [])
                 
                 if cards:
-                    # Clear server cards first
                     self.api.clear_cards()
-                    
-                    # Upload new cards
                     success, result = self.api.upload_cards(cards)
                     if success:
                         return len(cards)
@@ -150,7 +160,6 @@ class AnkiExtension:
         try:
             dialog = SettingsDialog(self.config, self.api)
             if dialog.exec():
-                # Reload configuration after changes
                 self.config.reload()
                 self.notifications.success("Settings updated")
         except Exception as e:
@@ -163,7 +172,6 @@ class AnkiExtension:
                 showInfo("Please configure server settings first")
                 return
             
-            # Get card data
             card_collector = self.data_collector.get_collector('cards')
             if not card_collector:
                 showInfo("Card collector not available")
@@ -179,7 +187,6 @@ class AnkiExtension:
                 showInfo("No cards found in the specified deck")
                 return
             
-            # Clear server and upload
             self.api.clear_cards()
             success, result = self.api.upload_cards(cards)
             
@@ -198,7 +205,6 @@ class AnkiExtension:
                 showInfo("Please configure server settings first")
                 return
             
-            # Get words from server
             success, words = self.api.get_words()
             
             if not success:
@@ -209,7 +215,6 @@ class AnkiExtension:
                 showInfo("No processed words available on server")
                 return
             
-            # Show import dialog
             dialog = ImportDialog(words, self.config, self.card_processor, self.api)
             dialog.exec()
         

@@ -25,6 +25,10 @@ class ImportDialog(QDialog):
         
         self.setup_ui()
         self.populate_table()
+
+    def closeEvent(self, event):
+        """Ensure proper cleanup on close"""
+        super().closeEvent(event)
     
     def setup_ui(self):
         """Setup the user interface"""

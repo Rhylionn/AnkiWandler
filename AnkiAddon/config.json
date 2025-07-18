@@ -1,0 +1,11 @@
+{
+  "server_url": "http://localhost:8000",
+  "api_key": "",
+  "deck_name": "Default",
+  "auto_upload_on_startup": true,
+  "auto_import_on_startup": true,
+  "collect_cards": true,
+  "collect_reviews": false,
+  "collect_decks": false,
+  "collect_patterns": false
+}

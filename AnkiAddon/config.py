@@ -1,82 +1,64 @@
-# config.py - Configuration Management
-from typing import Dict, Any
+# config.py - Rewritten Configuration Management
 from aqt import mw
 
 class ConfigManager:
-    """Simple configuration manager for settings storage and validation"""
+    """Simple configuration manager using Anki's built-in system"""
     
-    # Default configuration values
     DEFAULT_CONFIG = {
         "server_url": "http://localhost:8000",
         "api_key": "",
         "deck_name": "Default",
         "auto_upload_on_startup": True,
         "auto_import_on_startup": True,
-        
-        # Data collection settings
         "collect_cards": True,
         "collect_reviews": False,
         "collect_decks": False,
         "collect_patterns": False,
-        
-        # Future extension point
-        "data_sync_frequency": "startup"
     }
     
     def __init__(self):
-        self._config = None
-        self._load_config()
+        self._ensure_config_exists()
     
-    def _load_config(self) -> None:
-        """Load configuration from Anki addon manager"""
-        addon_config = mw.addonManager.getConfig(__name__) or {}
-        
-        # Merge with defaults to ensure all keys exist
-        self._config = self.DEFAULT_CONFIG.copy()
-        self._config.update(addon_config)
+    def _ensure_config_exists(self):
+        """Ensure configuration exists with defaults"""
+        current = mw.addonManager.getConfig(__name__)
+        if not current:
+            mw.addonManager.writeConfig(__name__, self.DEFAULT_CONFIG.copy())
     
-    def get(self, key: str, default=None) -> Any:
+    def get(self, key: str, default=None):
         """Get configuration value"""
-        if self._config is None:
-            self._load_config()
-        return self._config.get(key, default)
+        config = mw.addonManager.getConfig(__name__) or {}
+        if key in config:
+            return config[key]
+        return self.DEFAULT_CONFIG.get(key, default)
     
-    def set(self, key: str, value: Any) -> None:
+    def set(self, key: str, value):
         """Set configuration value"""
-        if self._config is None:
-            self._load_config()
-        self._config[key] = value
+        config = mw.addonManager.getConfig(__name__) or {}
+        config[key] = value
+        mw.addonManager.writeConfig(__name__, config)
     
-    def get_all(self) -> Dict[str, Any]:
+    def get_all(self):
         """Get all configuration values"""
-        if self._config is None:
-            self._load_config()
-        return self._config.copy()
+        config = mw.addonManager.getConfig(__name__) or {}
+        result = self.DEFAULT_CONFIG.copy()
+        result.update(config)
+        return result
     
-    def update(self, updates: Dict[str, Any]) -> None:
+    def update(self, updates: dict):
         """Update multiple configuration values"""
-        if self._config is None:
-            self._load_config()
-        self._config.update(updates)
+        config = mw.addonManager.getConfig(__name__) or {}
+        config.update(updates)
+        mw.addonManager.writeConfig(__name__, config)
     
-    def save(self) -> None:
-        """Save configuration to Anki addon manager"""
-        if self._config is not None:
-            mw.addonManager.writeConfig(__name__, self._config)
+    def save(self):
+        """Save is handled automatically by set/update methods"""
+        pass
     
-    def is_server_configured(self) -> bool:
+    def is_server_configured(self):
         """Check if server is properly configured"""
         return bool(self.get('server_url') and self.get('api_key'))
     
-    def get_enabled_collectors(self) -> list:
-        """Get list of enabled data collectors"""
-        enabled = []
-        for key, value in self._config.items():
-            if key.startswith('collect_') and value:
-                collector_name = key.replace('collect_', '')
-                enabled.append(collector_name)
-        return enabled
-    
-    def reload(self) -> None:
-        """Reload configuration from storage"""
-        self._load_config()
+    def reload(self):
+        """Reload configuration (no-op since we read fresh each time)"""
+        pass
