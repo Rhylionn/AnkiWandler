@@ -1,6 +1,7 @@
 # data_collector.py - Flexible Data Collection System
-from typing import Dict, Any
+from typing import List, Dict, Any
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 class BaseDataCollector(ABC):
     """Base class for data collectors"""
@@ -47,28 +48,45 @@ class CardDataCollector(BaseDataCollector):
         """Set the deck to collect cards from"""
         self.deck_name = deck_name
 
-# Future collectors - ready for implementation
-
 class ReviewDataCollector(BaseDataCollector):
-    """Collector for review statistics (future implementation)"""
+    """Collector for review statistics and analytics"""
+    
+    def __init__(self, review_processor, config_manager):
+        self.review_processor = review_processor
+        self.config = config_manager
     
     @property
     def name(self) -> str:
         return "reviews"
     
     def collect(self) -> Dict[str, Any]:
-        """Collect review statistics"""
-        # TODO: Implement review data collection
-        # This would collect:
-        # - Recent review sessions
-        # - Success rates
-        # - Time spent studying
-        # - Card difficulty ratings
-        return {
-            "reviews": [],
-            "stats": {},
-            "note": "Review collection not yet implemented"
-        }
+        """Collect review data from Anki's existing data"""
+        try:
+            # Get deck name from settings
+            deck_name = self.config.get('deck_name', 'Default')
+            
+            # Get only the latest session (today's merged session)
+            latest_session = self.review_processor.get_latest_session_only()
+            
+            return {
+                "latest_session": latest_session,  # Single session object or None
+                "current_state": self.review_processor.get_current_deck_state(deck_name),
+                "overall_metrics": self.review_processor.get_overall_metrics(30),
+                "collection_date": datetime.now().isoformat(),
+                "status": "success"
+            }
+        except Exception as e:
+            print(f"Error collecting review data: {e}")
+            return {
+                "latest_session": None,
+                "current_state": {},
+                "overall_metrics": {},
+                "collection_date": datetime.now().isoformat(),
+                "status": "error",
+                "error": str(e)
+            }
+
+# Future collectors - ready for implementation
 
 class DeckDataCollector(BaseDataCollector):
     """Collector for deck metadata (future implementation)"""
@@ -137,7 +155,7 @@ class DataCollector:
     
     def collect_enabled_data(self, config_manager) -> Dict[str, Any]:
         """Collect data from all enabled collectors"""
-        enabled_collectors = config_manager.get_enabled_collectors()
+        enabled_collectors = self.get_enabled_collectors(config_manager)
         collected_data = {}
         
         for collector_name in enabled_collectors:
@@ -152,6 +170,19 @@ class DataCollector:
                     collected_data[collector_name] = {"error": str(e)}
         
         return collected_data
+    
+    def get_enabled_collectors(self, config_manager) -> List[str]:
+        """Get list of enabled collectors from config"""
+        enabled = []
+        if config_manager.get('collect_cards', True):
+            enabled.append('cards')
+        if config_manager.get('collect_reviews', True):
+            enabled.append('reviews')
+        if config_manager.get('collect_decks', False):
+            enabled.append('decks')
+        if config_manager.get('collect_patterns', False):
+            enabled.append('patterns')
+        return enabled
     
     def collect_all_data(self) -> Dict[str, Any]:
         """Collect data from all collectors (regardless of config)"""

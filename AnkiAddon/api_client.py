@@ -94,6 +94,16 @@ class APIClient:
         success, result = self._request("DELETE", "/api/v1/words/processed/clear_all")
         return success, result
     
+    def send_analytics_data(self, analytics_data: Dict) -> Tuple[bool, Any]:
+        """Send analytics data to server"""
+        success, result = self._request("POST", "/api/v1/analytics/data", analytics_data)
+        return success, result
+    
+    def get_analytics_dashboard(self) -> Tuple[bool, Any]:
+        """Get analytics dashboard data from server"""
+        success, result = self._request("GET", "/api/v1/analytics/dashboard")
+        return success, result
+    
     def send_data(self, data_type: str, data: Dict) -> Tuple[bool, Any]:
         """Send specific data type to server (future extension point)"""
         endpoint = f"/api/v1/data/{data_type}"

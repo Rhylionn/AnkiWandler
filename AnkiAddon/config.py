@@ -11,7 +11,7 @@ class ConfigManager:
         "auto_upload_on_startup": True,
         "auto_import_on_startup": True,
         "collect_cards": True,
-        "collect_reviews": False,
+        "collect_reviews": True,
         "collect_decks": False,
         "collect_patterns": False,
     }

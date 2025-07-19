@@ -4,18 +4,59 @@ Simple, extensible Word Management extension for Anki
 Handles card upload, word import, and flexible data collection
 """
 
+import json
 from aqt import mw, gui_hooks
 from aqt.utils import showInfo
-from aqt.qt import QTimer
+from aqt.qt import QTimer, QDialog, QVBoxLayout, QTextEdit, QPushButton, QHBoxLayout
 
 # Import all components
 from .config import ConfigManager
 from .api_client import APIClient
 from .card_processor import CardProcessor
-from .data_collector import DataCollector, CardDataCollector
+from .review_processor import ReviewProcessor
+from .data_collector import DataCollector, CardDataCollector, ReviewDataCollector
 from .notifications import NotificationManager
 from .dialogs.settings import SettingsDialog
 from .dialogs.import_dialog import ImportDialog
+
+class JSONViewerDialog(QDialog):
+    """Simple dialog to display JSON data"""
+    
+    def __init__(self, json_data, title="JSON Data"):
+        super().__init__(mw)
+        self.setWindowTitle(title)
+        self.setMinimumSize(800, 600)
+        self.setModal(True)
+        
+        layout = QVBoxLayout(self)
+        
+        # Text area for JSON
+        self.text_edit = QTextEdit()
+        self.text_edit.setPlainText(json.dumps(json_data, indent=2, ensure_ascii=False))
+        self.text_edit.setReadOnly(True)
+        self.text_edit.setFont(mw.app.font())
+        layout.addWidget(self.text_edit)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        
+        copy_btn = QPushButton("Copy to Clipboard")
+        copy_btn.clicked.connect(self.copy_to_clipboard)
+        button_layout.addWidget(copy_btn)
+        
+        button_layout.addStretch()
+        
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        close_btn.setDefault(True)
+        button_layout.addWidget(close_btn)
+        
+        layout.addLayout(button_layout)
+    
+    def copy_to_clipboard(self):
+        """Copy JSON text to clipboard"""
+        mw.app.clipboard().setText(self.text_edit.toPlainText())
+        showInfo("JSON copied to clipboard!")
 
 class AnkiExtension:
     """Main extension controller - simple and linear"""
@@ -24,6 +65,7 @@ class AnkiExtension:
         self.config = ConfigManager()
         self.api = APIClient(self.config)
         self.card_processor = CardProcessor()
+        self.review_processor = ReviewProcessor()
         self.data_collector = DataCollector()
         self.notifications = NotificationManager()
         
@@ -42,6 +84,9 @@ class AnkiExtension:
         """Register all available data collectors"""
         card_collector = CardDataCollector(self.card_processor)
         self.data_collector.register_collector(card_collector)
+        
+        review_collector = ReviewDataCollector(self.review_processor, self.config)
+        self.data_collector.register_collector(review_collector)
     
     def _setup_menus(self):
         """Setup menu items"""
@@ -55,6 +100,16 @@ class AnkiExtension:
         
         import_action = mw.form.menuTools.addAction("📥 Import Words")
         import_action.triggered.connect(self.manual_import)
+        
+        analytics_action = mw.form.menuTools.addAction("📊 View Analytics")
+        analytics_action.triggered.connect(self.view_analytics)
+        
+        send_analytics_action = mw.form.menuTools.addAction("📊 Send Analytics")
+        send_analytics_action.triggered.connect(self.send_analytics)
+        
+        # Debug menu for viewing raw JSON
+        debug_action = mw.form.menuTools.addAction("🔍 Debug Analytics JSON")
+        debug_action.triggered.connect(self.debug_analytics_json)
     
     def _setup_hooks(self):
         """Setup Anki hooks"""
@@ -220,6 +275,124 @@ class AnkiExtension:
         
         except Exception as e:
             self.notifications.error(e, "Import Error")
+    
+    def view_analytics(self):
+        """View analytics data (simple display for now)"""
+        try:
+            # Collect review data
+            review_collector = self.data_collector.get_collector('reviews')
+            if not review_collector:
+                showInfo("Review collector not available")
+                return
+            
+            review_data = review_collector.collect()
+            
+            # Check if data collection was successful
+            if review_data.get('status') == 'error':
+                showInfo(f"Error collecting analytics data: {review_data.get('error', 'Unknown error')}")
+                return
+            
+            # Get latest session and other data
+            latest_session = review_data.get('latest_session')
+            current_state = review_data.get('current_state', {})
+            metrics = review_data.get('overall_metrics', {})
+            
+            # Format data for display
+            info_lines = [
+                "📊 Analytics Summary",
+                "",
+                "🔥 Latest Session:"
+            ]
+            
+            if latest_session:
+                info_lines.extend([
+                    f"  • Date: {latest_session.get('date', 'Unknown')}",
+                    f"  • Duration: {latest_session.get('duration_minutes', 0):.1f} minutes",
+                    f"  • Cards Reviewed: {latest_session.get('cards_reviewed', 0)}",
+                    f"  • Success Rate: {latest_session.get('success_rate', 0):.1%}",
+                    f"  • New Cards Learned: {latest_session.get('new_cards_learned', 0)}"
+                ])
+                
+                # Show if session was merged
+                if latest_session.get('merged_sessions_count', 0) > 1:
+                    info_lines.append(f"  • Merged {latest_session.get('merged_sessions_count')} sessions")
+            else:
+                info_lines.append("  • No session data available")
+            
+            info_lines.extend([
+                "",
+                f"📈 Current State ({current_state.get('deck_name', 'Unknown Deck')}):",
+                f"  • Cards Due Today: {current_state.get('cards_due_today', 0)}",
+                f"  • New Cards Available: {current_state.get('new_cards_available', 0)}",
+                f"  • Cards Overdue: {current_state.get('cards_overdue', 0)}",
+                f"  • Total Cards: {current_state.get('total_cards', 0)}",
+                "",
+                "📋 Overall Metrics (Last 30 Days):",
+                f"  • Engagement Score: {metrics.get('engagement_score', 0):.2f}",
+                f"  • Motivation Trend: {metrics.get('motivation_trend', 0):.2f}",
+                f"  • Burnout Risk: {metrics.get('burnout_risk_score', 0):.2f}",
+                f"  • Procrastination: {metrics.get('procrastination_indicator', 0):.2f}",
+                "",
+                "💡 Use 'Send Analytics' to upload this data to server"
+            ])
+            
+            showInfo("\n".join(info_lines))
+        
+        except Exception as e:
+            self.notifications.error(e, "Analytics Error")
+    
+    def debug_analytics_json(self):
+        """Show raw analytics JSON data for debugging"""
+        try:
+            # Collect review data
+            review_collector = self.data_collector.get_collector('reviews')
+            if not review_collector:
+                showInfo("Review collector not available")
+                return
+            
+            review_data = review_collector.collect()
+            
+            # Show JSON viewer dialog
+            dialog = JSONViewerDialog(review_data, "Analytics JSON Data")
+            dialog.exec()
+        
+        except Exception as e:
+            showInfo(f"Error collecting analytics data: {str(e)}")
+    
+    def send_analytics(self):
+        """Send analytics data to server"""
+        try:
+            if not self.config.is_server_configured():
+                showInfo("Please configure server settings first")
+                return
+            
+            # Collect review data
+            review_collector = self.data_collector.get_collector('reviews')
+            if not review_collector:
+                showInfo("Review collector not available")
+                return
+            
+            review_data = review_collector.collect()
+            
+            # Check if data collection was successful
+            if review_data.get('status') == 'error':
+                showInfo(f"Error collecting analytics data: {review_data.get('error', 'Unknown error')}")
+                return
+            
+            if not review_data.get('latest_session') and not review_data.get('current_state'):
+                showInfo("No analytics data to send")
+                return
+            
+            # Send to server
+            success, result = self.api.send_analytics_data(review_data)
+            
+            if success:
+                self.notifications.success("Analytics data sent successfully")
+            else:
+                self.notifications.error(f"Failed to send analytics: {result}")
+        
+        except Exception as e:
+            self.notifications.error(e, "Analytics Send Error")
 
 # Initialize the extension
 extension = AnkiExtension()
