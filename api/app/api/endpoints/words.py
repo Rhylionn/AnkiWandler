@@ -8,12 +8,13 @@ from app.schemas.word import (
 )
 from app.services.word_service import WordService
 from app.services.queue_service import queue_worker
+import os
 
 router = APIRouter(prefix="/words", tags=["words"])
 
 @router.post("/add", response_model=dict)
 async def add_word(word_data: WordCreate, api_key: str = Depends(verify_api_key)):
-    """Add a single word to the processing queue"""
+    """Add a single word to the enhanced processing queue"""
     try:
         return WordService.add_word(word_data)
     except Exception as e:
@@ -24,7 +25,7 @@ async def add_word(word_data: WordCreate, api_key: str = Depends(verify_api_key)
 
 @router.post("/add_list", response_model=WordListResponse)
 async def add_word_list(word_list_data: WordListCreate, api_key: str = Depends(verify_api_key)):
-    """Add multiple words to the processing queue"""
+    """Add multiple words to the enhanced processing queue"""
     try:
         result = WordService.add_word_list(word_list_data)
         return WordListResponse(**result)
@@ -39,7 +40,7 @@ async def get_pending_words(
     limit: Optional[int] = 100,
     api_key: str = Depends(verify_api_key)
 ):
-    """Get all pending words (waiting for AI + translation processing)"""
+    """Get all pending words (waiting for enhanced AI + dictionary processing)"""
     try:
         return WordService.get_pending_words(limit)
     except Exception as e:
@@ -53,7 +54,7 @@ async def get_processed_words(
     limit: Optional[int] = 100,
     api_key: str = Depends(verify_api_key)
 ):
-    """Get all processed words (completed AI + translation processing)"""
+    """Get all processed words (completed enhanced AI + dictionary processing)"""
     try:
         return WordService.get_processed_words(limit)
     except Exception as e:
@@ -64,7 +65,7 @@ async def get_processed_words(
 
 @router.get("/queue/status")
 async def get_queue_status(api_key: str = Depends(verify_api_key)):
-    """Get current queue processing status"""
+    """Get current enhanced queue processing status"""
     try:
         return queue_worker.get_queue_status()
     except Exception as e:
@@ -73,9 +74,46 @@ async def get_queue_status(api_key: str = Depends(verify_api_key)):
             detail=f"Error getting queue status: {str(e)}"
         )
 
+@router.get("/workflow/status")
+async def get_workflow_status(api_key: str = Depends(verify_api_key)):
+    """Get enhanced workflow and dictionary status"""
+    try:
+        # Check dictionary file availability
+        morphology_exists = os.path.exists("data/DE_morph_dict.txt")
+        kaikki_exists = os.path.exists("data/kaikki.org-dictionary-German.jsonl")
+        
+        # Get queue status
+        queue_status = queue_worker.get_queue_status()
+        
+        return {
+            "workflow_version": "3.0.0",
+            "enhanced_workflow_active": True,
+            "dictionary_integration": {
+                "morphology_dict_available": morphology_exists,
+                "morphology_dict_path": "data/DE_morph_dict.txt",
+                "kaikki_dict_available": kaikki_exists,
+                "kaikki_dict_path": "data/kaikki.org-dictionary-German.jsonl",
+                "cache_rebuilds_on_restart": True
+            },
+            "processing_workflow": {
+                "step_1": "Check if word has article",
+                "step_2a_noun_with_article": "Get plural from Kaikki → AI fallback → Generate sentence → Translate",
+                "step_2b_noun_without_article": "Determine type → Get article from dict/AI → Follow noun path",
+                "step_2c_non_noun": "Generate sentence → Translate",
+                "dictionary_first": True,
+                "ai_fallback": True
+            },
+            "queue_status": queue_status
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting workflow status: {str(e)}"
+        )
+
 @router.post("/queue/retry")
 async def retry_queue(api_key: str = Depends(verify_api_key)):
-    """Retry failed words in the queue"""
+    """Retry failed words in the enhanced queue"""
     try:
         return queue_worker.retry_failed_words()
     except Exception as e:

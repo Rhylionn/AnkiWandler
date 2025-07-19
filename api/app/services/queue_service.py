@@ -1,24 +1,22 @@
-def signal_work_available(self):
-        """Signal that new work is available (thread-safe)"""
-        if self.loop and self.work_event and self.running:
-            # Schedule the event to be set in the worker's event loop
-            self.loop.call_soon_threadsafe(self.work_event.set)
-            print("🔔 Signaled work available to queue worker")# app/services/queue_service.py
+# app/services/queue_service.py
 import asyncio
 import threading
 from typing import List, Optional
 from app.database.connection import get_db_connection
 from app.schemas.word import WordCreate
+
+# Import unified AI service
 from app.services.ai_service import AIService
 
 class QueueService:
-    """Event-driven background queue worker for processing words with retry logic"""
+    """Event-driven background queue worker for processing words with enhanced workflow"""
     
     def __init__(self):
         self.running = False
         self.thread = None
         self.loop = None
         self.work_event = None
+        self.ai_service = None
         
     def start(self):
         """Start the background queue worker"""
@@ -49,32 +47,38 @@ class QueueService:
         try:
             self.loop.run_until_complete(self._worker_loop())
         except Exception as e:
-            print(f"❌ Queue worker error: {e}")
+            print(f"❌ Enhanced queue worker error: {e}")
         finally:
             self.loop.close()
     
     async def _worker_loop(self):
-        """Event-driven processing loop"""
+        """Event-driven processing loop with enhanced AI"""
+        # Initialize AI service with dictionary integration
+        self.ai_service = AIService()
+        await self.ai_service.initialize()
+        print("✅ Enhanced AI service with dictionaries initialized")
+        print("🔄 Queue worker ready for processing...")
+        
         while self.running:
             try:
                 # Get pending words
                 pending_words = self._get_pending_words()
                 
                 if pending_words:
-                    print(f"📝 Processing {len(pending_words)} pending words")
+                    print(f"📝 PROCESSING BATCH: {len(pending_words)} words")
                     await self._process_words_batch(pending_words)
                     
                     # Check immediately for more work after batch completion
                     continue
                 
                 # No work found, wait for event signal or timeout
-                print("💤 No pending words, waiting for work signal...")
+                print("💤 Waiting for work...")
                 try:
                     await asyncio.wait_for(self.work_event.wait(), timeout=300)  # 5 minute fallback
                     self.work_event.clear()  # Reset event
-                    print("🔔 Work signal received, checking for pending words...")
+                    print("🔔 Work signal received")
                 except asyncio.TimeoutError:
-                    print("⏰ Timeout reached, checking for pending words...")
+                    print("⏰ Timeout, checking again...")
                 
             except Exception as e:
                 print(f"❌ Worker loop error: {e}")
@@ -111,18 +115,18 @@ class QueueService:
     async def _process_words_batch(self, words: List[dict]):
         """Process a batch of words with concurrency control"""
         # Limit concurrent processing
-        semaphore = asyncio.Semaphore(2)  # Reduced from 3 to 2 for stability
+        semaphore = asyncio.Semaphore(2)  # Reduced for stability
         
         async def process_with_semaphore(word_data: dict):
             async with semaphore:
-                await self._process_single_word(word_data)
+                await self._process_single_word_enhanced(word_data)
         
         # Process all words concurrently
         tasks = [process_with_semaphore(word) for word in words]
         await asyncio.gather(*tasks, return_exceptions=True)
     
-    async def _process_single_word(self, word_data: dict):
-        """Process a single word with retry logic"""
+    async def _process_single_word_enhanced(self, word_data: dict):
+        """Process a single word with enhanced workflow and retry logic"""
         word_id = word_data['id']
         retry_count = word_data['retry_count']
         
@@ -130,11 +134,16 @@ class QueueService:
             # Add retry delay (exponential backoff)
             if retry_count > 0:
                 delay = min(2 ** retry_count, 60)  # 2s, 4s, 8s, max 60s
-                print(f"⏳ Retrying word {word_data['word']} (attempt {retry_count + 1}) after {delay}s delay")
+                print(f"🔄 RETRY: {word_data['word']} (attempt {retry_count + 1}) - waiting {delay}s")
                 await asyncio.sleep(delay)
             
             # Update status to processing
             self._update_word_status(word_id, 'processing', retry_count + 1)
+            
+            print(f"🚀 STARTING: {word_data['word']}")
+            if word_data['context_sentence']:
+                print(f"   📝 Context: {word_data['context_sentence']}")
+            print(f"   🔧 Collection mode: {'with context' if word_data['needs_article'] else 'direct'}")
             
             # Create WordCreate object
             word_create = WordCreate(
@@ -144,10 +153,8 @@ class QueueService:
                 needs_article=word_data['needs_article']
             )
             
-            # Process through AI service
-            await AIService.process_word_async(word_id, word_create, f"queue-{word_id}")
-            
-            print(f"✅ Successfully processed: {word_data['word']}")
+            # Process through unified AI service
+            await self.ai_service.process_word_enhanced(word_id, word_create, f"queue-{word_id}")
             
         except Exception as e:
             # Update retry count and set to failed
@@ -155,10 +162,14 @@ class QueueService:
             
             if new_retry_count >= 3:
                 self._update_word_status(word_id, 'failed', new_retry_count)
-                print(f"❌ Permanently failed after {new_retry_count} attempts: {word_data['word']} - {str(e)}")
+                print(f"❌ PERMANENTLY FAILED: {word_data['word']} after {new_retry_count} attempts")
+                print(f"   Error: {str(e)}")
+                print("-" * 60)
             else:
                 self._update_word_status(word_id, 'failed', new_retry_count)
-                print(f"⚠️ Failed attempt {new_retry_count}/3: {word_data['word']} - {str(e)}")
+                print(f"⚠️  RETRY LATER: {word_data['word']} (attempt {new_retry_count}/3)")
+                print(f"   Error: {str(e)}")
+                print("-" * 60)
     
     def _update_word_status(self, word_id: int, status: str, retry_count: int):
         """Update word processing status and retry count"""
@@ -199,7 +210,8 @@ class QueueService:
                 'processing': status_counts.get('processing', 0),
                 'failed': status_counts.get('failed', 0),
                 'retryable_failed': retryable_failed,
-                'total_pending': status_counts.get('pending', 0) + retryable_failed
+                'total_pending': status_counts.get('pending', 0) + retryable_failed,
+                'enhanced_workflow': True
             }
     
     def retry_failed_words(self) -> dict:
@@ -236,7 +248,7 @@ class QueueService:
         if self.loop and self.work_event and self.running:
             # Schedule the event to be set in the worker's event loop
             self.loop.call_soon_threadsafe(self.work_event.set)
-            print("🔔 Signaled work available to queue worker")
+            print("🔔 New work available - waking up queue worker")
 
 # Global queue instance
 queue_worker = QueueService()

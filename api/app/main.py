@@ -4,6 +4,8 @@ import os
 from app.api.router import api_router
 from app.database.connection import init_database
 from app.services.queue_service import queue_worker
+from app.services.ai_service import AIService
+from app.config.settings import settings
 
 def get_cors_origins():
     """Automatically determine allowed origins based on environment"""
@@ -22,11 +24,11 @@ def get_cors_origins():
         return [prod_domain]
 
 def create_application() -> FastAPI:
-    """Create FastAPI application with auto CORS"""
+    """Create FastAPI application with enhanced word processing"""
     app = FastAPI(
-        title="Word Management API with AI Processing",
-        version="2.1.0",
-        description="A structured API for managing words with AI processing and translation pipeline"
+        title="Enhanced Word Management API with Dictionary Integration",
+        version="3.0.0",
+        description="Enhanced API with German morphological dictionaries and Kaikki data integration"
     )
     
     # Add CORS middleware with automatic origin detection
@@ -44,18 +46,61 @@ def create_application() -> FastAPI:
     # Health check endpoint
     @app.get("/")
     async def root():
-        return {"message": "Word Management API with AI Processing is running", "version": "2.1.0"}
+        return {
+            "message": "Enhanced Word Management API with Dictionary Integration", 
+            "version": "3.0.0",
+            "features": [
+                "German morphological dictionary integration",
+                "Kaikki plural data lookup",
+                "Enhanced workflow processing",
+                "Dictionary-first with AI fallback"
+            ]
+        }
     
-    # Initialize database and start queue worker on startup
+    # Initialize everything on startup
     @app.on_event("startup")
     async def startup_event():
+        print("🚀 Starting Enhanced Word Management API...")
+        print("=" * 60)
+        
+        # Initialize database
+        print("📊 Initializing database...")
         init_database()
+        print("✅ Database ready")
+        
+        # Load AI model
+        print("🤖 Loading AI model...")
+        try:
+            await AIService.initialize_model()
+        except Exception as e:
+            print(f"❌ AI model failed: {e}")
+            print("⚠️ Continuing without AI model - some features may not work")
+        
+        # Start enhanced queue worker (which will initialize dictionaries)
+        print("⚙️ Starting enhanced queue worker...")
         queue_worker.start()
+        
+        print("=" * 60)
+        print("🎉 Enhanced Word Management API is ready!")
+        print("📚 Dictionary Files Status:")
+        morphology_exists = os.path.exists(settings.MORPHOLOGY_DICT_PATH)
+        kaikki_exists = os.path.exists(settings.KAIKKI_DICT_PATH)
+        print(f"   📖 Morphology: {'✅ Available' if morphology_exists else '❌ Missing'} ({settings.MORPHOLOGY_DICT_PATH})")
+        print(f"   📚 Kaikki: {'✅ Available' if kaikki_exists else '❌ Missing'} ({settings.KAIKKI_DICT_PATH})")
+        
+        if not morphology_exists or not kaikki_exists:
+            print("⚠️  Some dictionary files are missing!")
+            print("💡 Place files in data/ directory for full functionality")
+        
+        print("=" * 60)
     
-    # Stop queue worker on shutdown
+    # Stop services on shutdown
     @app.on_event("shutdown")
     async def shutdown_event():
+        print("🛑 Shutting down Enhanced Word Management API...")
         queue_worker.stop()
+        print("✅ Shutdown complete")
+        print("=" * 60)
     
     return app
 

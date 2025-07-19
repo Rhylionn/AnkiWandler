@@ -6,7 +6,7 @@ from app.schemas.word import WordCreate, WordListCreate, PendingWordResponse, Pr
 class WordService:
     @staticmethod
     def add_word(word_data: WordCreate) -> dict:
-        """Add a single word to the queue for processing"""
+        """Add a single word to the enhanced processing queue"""
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -22,24 +22,25 @@ class WordService:
             word_id = cursor.lastrowid
             conn.commit()
             
-        # Signal queue worker that new work is available
+        # Signal enhanced queue worker that new work is available
         from app.services.queue_service import queue_worker
         queue_worker.signal_work_available()
         
         context_info = " (with context)" if word_data.context_sentence else ""
         
         return {
-            "message": "Word added to processing queue",
+            "message": "Word added to enhanced processing queue",
             "word_id": word_id,
             "word": word_data.word,
             "queued": True,
             "context_provided": bool(word_data.context_sentence),
-            "needs_article": word_data.needs_article
+            "needs_article": word_data.needs_article,
+            "enhanced_workflow": True
         }
     
     @staticmethod
     def add_word_list(word_list_data: WordListCreate) -> dict:
-        """Add multiple words to the queue for processing"""
+        """Add multiple words to the enhanced processing queue"""
         word_ids = []
         context_count = 0
         direct_count = 0
@@ -72,16 +73,17 @@ class WordService:
             
             conn.commit()
         
-        # Signal queue worker that new work is available
+        # Signal enhanced queue worker that new work is available
         from app.services.queue_service import queue_worker
         queue_worker.signal_work_available()
         
         return {
-            "message": f"Words added to processing queue",
+            "message": f"Words added to enhanced processing queue",
             "total_words": len(word_list_data.words),
             "context_words": context_count,
             "direct_words": direct_count,
-            "queued": True
+            "queued": True,
+            "enhanced_workflow": True
         }
     
     @staticmethod
@@ -189,6 +191,7 @@ class WordService:
             conn.commit()
             
             return {
-                "message": f"All processed words cleared successfully",
-                "deleted_count": count
+                "message": f"All processed words cleared successfully (enhanced workflow)",
+                "deleted_count": count,
+                "enhanced_workflow": True
             }

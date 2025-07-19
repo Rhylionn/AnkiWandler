@@ -38,18 +38,6 @@ class ProcessedWordResponse(BaseModel):
     tl_plural: Optional[str] = None
     processed_at: str
 
-# Internal AI processing schemas (not exposed via API)
-class WordClassification(BaseModel):
-    is_noun: bool
-
-class AIResponse(BaseModel):
-    tl_word: str
-    tl_sentence: str
-    tl_plural: Optional[str] = None
-
-class SimpleAIResponse(BaseModel):
-    tl_sentence: str
-
 class TranslationRequest(BaseModel):
     text: str
     target_language: str = "en"

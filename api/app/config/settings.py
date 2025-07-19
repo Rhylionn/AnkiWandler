@@ -15,8 +15,14 @@ class Settings:
     TRANSLATION_API_TIMEOUT: int = int(os.getenv("TRANSLATION_API_TIMEOUT", "15"))
     TRANSLATION_API_KEY: str = os.getenv("TRANSLATION_API_KEY")
     
+    # Dictionary file paths
+    MORPHOLOGY_DICT_PATH: str = os.getenv("MORPHOLOGY_DICT_PATH", "data/DE_morph_dict.txt")
+    KAIKKI_DICT_PATH: str = os.getenv("KAIKKI_DICT_PATH", "data/kaikki.org-dictionary-German-words.jsonl")
+    DICT_CACHE_DIR: str = os.getenv("DICT_CACHE_DIR", "data/cache")
+    
     # Create data directory if it doesn't exist
     def __init__(self):
         os.makedirs(os.path.dirname(self.DATABASE_PATH), exist_ok=True)
+        os.makedirs(self.DICT_CACHE_DIR, exist_ok=True)
 
 settings = Settings()
