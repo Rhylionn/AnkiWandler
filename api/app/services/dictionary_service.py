@@ -67,7 +67,7 @@ class GermanDictionaryService:
         
         if word_analysis['type'] != 'noun':
             print(f"   ✅ Not a noun ({word_analysis['type']}) → Generate sentence")
-            return await self._step5_generate_sentence(word, word_analysis['type'], context, review_flags, word_id, word_data, request_id)
+            return await self._step5_generate_sentence(word, context, review_flags, word_id, word_data, request_id)
         
         print(f"   ✅ Is a noun → Get article")
         
@@ -134,14 +134,15 @@ class GermanDictionaryService:
             review_flags.append("generated_plural")
             print(f"   ✅ AI generated: '{plural}'")
         
-        return await self._step5_generate_sentence(combined_word, 'noun', context, review_flags, word_id, word_data, request_id, plural)
+        return await self._step5_generate_sentence(combined_word, context, review_flags, word_id, word_data, request_id, plural)
     
-    async def _step5_generate_sentence(self, word: str, word_type: str, context: Optional[str], review_flags: list, word_id: int, word_data: WordCreate, request_id: str, plural: Optional[str] = None) -> Dict:
+    async def _step5_generate_sentence(self, word: str, context: Optional[str], review_flags: list, word_id: int, word_data: WordCreate, request_id: str, plural: Optional[str] = None) -> Dict:
         """STEP 5: Generate sentence (main exit point)"""
         
-        print(f"   🤖 Generating sentence for: '{word}' ({word_type})")
+        print(f"   🤖 Generating sentence for: '{word}'")
         
-        sentence = await self.ai_service.generate_sentence(word, word_type, context)
+        # Fixed: Only pass word parameter
+        sentence = await self.ai_service.generate_sentence(word)
         print(f"   ✅ Generated sentence: '{sentence}'")
         
         print(f"   🌐 Translating...")
@@ -155,7 +156,6 @@ class GermanDictionaryService:
             'nl_word': word_translation,
             'nl_sentence': translation,
             'tl_plural': plural,
-            'word_type': word_type,
             'processing_path': 'workflow_v2',
             'review_flags': review_flags
         }
