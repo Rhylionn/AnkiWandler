@@ -37,6 +37,7 @@ class ProcessedWordResponse(BaseModel):
     nl_sentence: str
     tl_plural: Optional[str] = None
     processed_at: str
+    review_flags: Optional[List[str]] = None  # NEW: For review flags
 
 class TranslationRequest(BaseModel):
     text: str

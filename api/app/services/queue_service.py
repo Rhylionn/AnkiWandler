@@ -5,9 +5,6 @@ from typing import List, Optional
 from app.database.connection import get_db_connection
 from app.schemas.word import WordCreate
 
-# Import unified AI service
-from app.services.ai_service import AIService
-
 class QueueService:
     """Event-driven background queue worker for processing words with enhanced workflow"""
     
@@ -16,7 +13,7 @@ class QueueService:
         self.thread = None
         self.loop = None
         self.work_event = None
-        self.ai_service = None
+        self.dictionary_service = None  # NEW: Main service dependency
         
     def start(self):
         """Start the background queue worker"""
@@ -52,11 +49,22 @@ class QueueService:
             self.loop.close()
     
     async def _worker_loop(self):
-        """Event-driven processing loop with enhanced AI"""
-        # Initialize AI service with dictionary integration
-        self.ai_service = AIService()
-        await self.ai_service.initialize()
-        print("✅ Enhanced AI service with dictionaries initialized")
+        """Event-driven processing loop with enhanced workflow"""
+        # Initialize dictionary service (which will initialize AI service)
+        from app.services.dictionary_service import GermanDictionaryService
+        from app.services.ai_service import AIService
+        
+        self.dictionary_service = GermanDictionaryService()
+        ai_service = AIService()
+        
+        # Inject AI service into dictionary service
+        self.dictionary_service.set_ai_service(ai_service)
+        
+        # Initialize both services
+        await self.dictionary_service.initialize()
+        await ai_service.initialize_model()
+        
+        print("✅ Dictionary service with AI initialized")
         print("🔄 Queue worker ready for processing...")
         
         while self.running:
@@ -153,8 +161,8 @@ class QueueService:
                 needs_article=word_data['needs_article']
             )
             
-            # Process through unified AI service
-            await self.ai_service.process_word_enhanced(word_id, word_create, f"queue-{word_id}")
+            # Process through dictionary service (NEW: Main entry point)
+            await self.dictionary_service.process_word_complete(word_id, word_create, f"queue-{word_id}")
             
         except Exception as e:
             # Update retry count and set to failed

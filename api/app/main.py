@@ -27,8 +27,8 @@ def create_application() -> FastAPI:
     """Create FastAPI application with enhanced word processing"""
     app = FastAPI(
         title="Enhanced Word Management API with Dictionary Integration",
-        version="3.0.0",
-        description="Enhanced API with German morphological dictionaries and Kaikki data integration"
+        version="4.1.0",
+        description="Enhanced API with German morphological dictionaries and CSV noun data integration"
     )
     
     # Add CORS middleware with automatic origin detection
@@ -48,10 +48,10 @@ def create_application() -> FastAPI:
     async def root():
         return {
             "message": "Enhanced Word Management API with Dictionary Integration", 
-            "version": "3.0.0",
+            "version": "4.1.0",
             "features": [
                 "German morphological dictionary integration",
-                "Kaikki plural data lookup",
+                "CSV noun plural data lookup",
                 "Enhanced workflow processing",
                 "Dictionary-first with AI fallback"
             ]
@@ -84,11 +84,11 @@ def create_application() -> FastAPI:
         print("🎉 Enhanced Word Management API is ready!")
         print("📚 Dictionary Files Status:")
         morphology_exists = os.path.exists(settings.MORPHOLOGY_DICT_PATH)
-        kaikki_exists = os.path.exists(settings.KAIKKI_DICT_PATH)
+        nouns_csv_exists = os.path.exists(settings.NOUNS_CSV_PATH)
         print(f"   📖 Morphology: {'✅ Available' if morphology_exists else '❌ Missing'} ({settings.MORPHOLOGY_DICT_PATH})")
-        print(f"   📚 Kaikki: {'✅ Available' if kaikki_exists else '❌ Missing'} ({settings.KAIKKI_DICT_PATH})")
+        print(f"   📚 Nouns CSV: {'✅ Available' if nouns_csv_exists else '❌ Missing'} ({settings.NOUNS_CSV_PATH})")
         
-        if not morphology_exists or not kaikki_exists:
+        if not morphology_exists or not nouns_csv_exists:
             print("⚠️  Some dictionary files are missing!")
             print("💡 Place files in data/ directory for full functionality")
         

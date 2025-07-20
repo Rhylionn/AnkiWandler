@@ -40,7 +40,7 @@ async def get_pending_words(
     limit: Optional[int] = 100,
     api_key: str = Depends(verify_api_key)
 ):
-    """Get all pending words (waiting for enhanced AI + dictionary processing)"""
+    """Get all pending words (waiting for enhanced workflow processing)"""
     try:
         return WordService.get_pending_words(limit)
     except Exception as e:
@@ -54,7 +54,7 @@ async def get_processed_words(
     limit: Optional[int] = 100,
     api_key: str = Depends(verify_api_key)
 ):
-    """Get all processed words (completed enhanced AI + dictionary processing)"""
+    """Get all processed words (completed enhanced workflow processing with review flags)"""
     try:
         return WordService.get_processed_words(limit)
     except Exception as e:
@@ -76,30 +76,37 @@ async def get_queue_status(api_key: str = Depends(verify_api_key)):
 
 @router.get("/workflow/status")
 async def get_workflow_status(api_key: str = Depends(verify_api_key)):
-    """Get enhanced workflow and dictionary status"""
+    """Get enhanced workflow status with new processor integration"""
     try:
         # Check dictionary file availability
-        morphology_exists = os.path.exists("data/DE_morph_dict.txt")
-        kaikki_exists = os.path.exists("data/kaikki.org-dictionary-German.jsonl")
+        morphology_exists = os.path.exists(os.getenv("MORPHOLOGY_DICT_PATH", "data/DE_morph_dict.txt"))
+        nouns_csv_exists = os.path.exists(os.getenv("NOUNS_CSV_PATH", "data/nouns.csv"))
         
         # Get queue status
         queue_status = queue_worker.get_queue_status()
         
         return {
-            "workflow_version": "3.0.0",
+            "workflow_version": "4.1.0",
             "enhanced_workflow_active": True,
-            "dictionary_integration": {
+            "main_entry_point": "dictionary_service.process_word_complete()",
+            "processor_integration": {
+                "article_processor_integrated": True,
+                "plural_processor_integrated": True,
                 "morphology_dict_available": morphology_exists,
                 "morphology_dict_path": "data/DE_morph_dict.txt",
-                "kaikki_dict_available": kaikki_exists,
-                "kaikki_dict_path": "data/kaikki.org-dictionary-German.jsonl",
+                "nouns_csv_available": nouns_csv_exists,
+                "nouns_csv_path": "data/nouns.csv",
                 "cache_rebuilds_on_restart": True
             },
             "processing_workflow": {
-                "step_1": "Check if word has article",
-                "step_2a_noun_with_article": "Get plural from Kaikki → AI fallback → Generate sentence → Translate",
-                "step_2b_noun_without_article": "Determine type → Get article from dict/AI → Follow noun path",
-                "step_2c_non_noun": "Generate sentence → Translate",
+                "step_1": "Check if word has article → Direct to plural processing",
+                "step_2": "Check if word is noun → If not, direct to sentence generation",
+                "step_3": "Get article process with review flags",
+                "step_4": "Plural processing with review flags", 
+                "step_5": "Generate sentence (main exit point)",
+                "step_6": "Generate translation",
+                "step_7": "Store result with review flags",
+                "review_flags_supported": True,
                 "dictionary_first": True,
                 "ai_fallback": True
             },

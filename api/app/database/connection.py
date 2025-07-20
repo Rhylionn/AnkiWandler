@@ -33,9 +33,17 @@ def init_database():
             tl_sentence TEXT NOT NULL,
             nl_sentence TEXT NOT NULL,
             tl_plural TEXT NULL,
+            review_flags TEXT NULL,
             processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    
+    # Add review_flags column if it doesn't exist (for existing databases)
+    try:
+        cursor.execute("ALTER TABLE processed_words ADD COLUMN review_flags TEXT")
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
     
     # Anki cards table (individual card storage)
     cursor.execute("""

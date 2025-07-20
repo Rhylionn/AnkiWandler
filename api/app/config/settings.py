@@ -17,7 +17,7 @@ class Settings:
     
     # Dictionary file paths
     MORPHOLOGY_DICT_PATH: str = os.getenv("MORPHOLOGY_DICT_PATH", "data/DE_morph_dict.txt")
-    KAIKKI_DICT_PATH: str = os.getenv("KAIKKI_DICT_PATH", "data/kaikki.org-dictionary-German-words.jsonl")
+    NOUNS_CSV_PATH: str = os.getenv("NOUNS_CSV_PATH", "data/nouns.csv")  # NEW
     DICT_CACHE_DIR: str = os.getenv("DICT_CACHE_DIR", "data/cache")
     
     # Create data directory if it doesn't exist

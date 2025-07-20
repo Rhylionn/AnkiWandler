@@ -2,6 +2,7 @@
 from typing import List
 from app.database.connection import get_db_connection
 from app.schemas.word import WordCreate, WordListCreate, PendingWordResponse, ProcessedWordResponse
+import json
 
 class WordService:
     @staticmethod
@@ -116,13 +117,13 @@ class WordService:
     
     @staticmethod
     def get_processed_words(limit: int = 100) -> List[ProcessedWordResponse]:
-        """Get processed words from database"""
+        """Get processed words from database - NOW WITH REVIEW FLAGS"""
         with get_db_connection() as conn:
             cursor = conn.cursor()
             
             query = """
                 SELECT id, original_word, date, tl_word, nl_word, 
-                       tl_sentence, nl_sentence, tl_plural, processed_at
+                       tl_sentence, nl_sentence, tl_plural, processed_at, review_flags
                 FROM processed_words 
                 ORDER BY processed_at DESC LIMIT ?
             """
@@ -130,8 +131,17 @@ class WordService:
             cursor.execute(query, (limit,))
             rows = cursor.fetchall()
             
-            return [
-                ProcessedWordResponse(
+            result = []
+            for row in rows:
+                # Parse review_flags JSON if it exists
+                review_flags = []
+                if row[9]:  # review_flags column
+                    try:
+                        review_flags = json.loads(row[9])
+                    except json.JSONDecodeError:
+                        review_flags = []
+                
+                processed_word = ProcessedWordResponse(
                     id=row[0],
                     original_word=row[1],
                     date=row[2],
@@ -141,8 +151,14 @@ class WordService:
                     nl_sentence=row[6],
                     tl_plural=row[7],
                     processed_at=row[8]
-                ) for row in rows
-            ]
+                )
+                
+                # Add review_flags as additional attribute
+                processed_word.review_flags = review_flags
+                
+                result.append(processed_word)
+            
+            return result
     
     @staticmethod
     def delete_pending_word(word_id: int) -> dict:
@@ -191,7 +207,7 @@ class WordService:
             conn.commit()
             
             return {
-                "message": f"All processed words cleared successfully (enhanced workflow)",
+                "message": f"All processed words cleared successfully (enhanced workflow v2)",
                 "deleted_count": count,
                 "enhanced_workflow": True
             }
