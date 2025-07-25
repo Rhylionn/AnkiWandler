@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
     QHeaderView
 )
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor
 from aqt import mw
 from typing import List, Dict
 
@@ -93,22 +94,32 @@ class ImportDialog(QDialog):
         import_btn = QPushButton("Import Selected")
         import_btn.clicked.connect(self.import_selected_words)
         import_btn.setDefault(True)
-        import_btn.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; font-weight: bold; }")
         button_layout.addWidget(import_btn)
         
         layout.addLayout(button_layout)
     
     def populate_table(self):
-        """Populate table with word data"""
+        """Populate table with word data and highlight flagged entries"""
         self.table.setRowCount(len(self.words))
         
+        flagged_color = QColor(168, 50, 60)  # Dark red background
+        
         for row, word in enumerate(self.words):
-            # Checkbox
+            # Check if word has review flags with length > 0
+            has_flags = isinstance(word, dict) and word.get('review_flags') and len(word.get('review_flags', [])) > 0
+            
+            # Checkbox (column 0)
+            checkbox_item = QTableWidgetItem("")
+            checkbox_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+            if has_flags:
+                checkbox_item.setBackground(flagged_color)
+            self.table.setItem(row, 0, checkbox_item)
+            
             checkbox = QCheckBox()
             checkbox.setChecked(True)  # Select all by default
             self.table.setCellWidget(row, 0, checkbox)
             
-            # Word data
+            # Word data (columns 1-5)
             data = [
                 word.get('original_word', ''),
                 word.get('nl_word', ''),
@@ -120,6 +131,8 @@ class ImportDialog(QDialog):
             for col, text in enumerate(data, 1):
                 item = QTableWidgetItem(str(text))
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
+                if has_flags:
+                    item.setBackground(flagged_color)
                 self.table.setItem(row, col, item)
         
         # Adjust row heights
