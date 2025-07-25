@@ -5,12 +5,15 @@ from app.config.settings import settings
 class TranslationService:
     @staticmethod
     async def translate_text(text: str) -> str:
-        """Translate German text to English using DeepL API"""
+        """Translate German text to configured target language using DeepL API"""
+        # Get target language from settings
+        target_lang = settings.TRANSLATION_TARGET_LANGUAGE
+        
         async with httpx.AsyncClient(timeout=settings.TRANSLATION_API_TIMEOUT) as client:
             payload = {
                 "text": [text],
                 "source_lang": "DE", 
-                "target_lang": "EN"  # Fixed: was FR, now EN
+                "target_lang": target_lang
             }
             
             headers = {}

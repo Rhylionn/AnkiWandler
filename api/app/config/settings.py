@@ -14,7 +14,10 @@ class Settings:
     TRANSLATION_API_URL: str = os.getenv("TRANSLATION_API_URL")
     TRANSLATION_API_TIMEOUT: int = int(os.getenv("TRANSLATION_API_TIMEOUT", "15"))
     TRANSLATION_API_KEY: str = os.getenv("TRANSLATION_API_KEY")
-    
+
+    # Translation settings    
+    TRANSLATION_TARGET_LANGUAGE: str = os.getenv("TRANSLATION_TARGET_LANGUAGE", "FR")
+
     # Dictionary file paths
     MORPHOLOGY_DICT_PATH: str = os.getenv("MORPHOLOGY_DICT_PATH", "data/DE_morph_dict.txt")
     NOUNS_CSV_PATH: str = os.getenv("NOUNS_CSV_PATH", "data/nouns.csv")  # NEW

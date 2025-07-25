@@ -1,16 +1,15 @@
-# dialogs/import_dialog.py - Word Import Dialog with Background Highlighting
+# dialogs/import_dialog.py - Word Import Dialog
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QTableWidget, QTableWidgetItem, QCheckBox, QMessageBox,
     QHeaderView
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
 from aqt import mw
 from typing import List, Dict
 
 class ImportDialog(QDialog):
-    """Dialog for importing processed words with flagged entry highlighting"""
+    """Simple dialog for importing processed words"""
     
     def __init__(self, words: List[Dict], config_manager, card_processor, api_client):
         super().__init__(mw)
@@ -18,6 +17,7 @@ class ImportDialog(QDialog):
         self.config = config_manager
         self.card_processor = card_processor
         self.api = api_client
+        self.selected_words = []
         
         self.setWindowTitle("Import Processed Words")
         self.setMinimumSize(800, 500)
@@ -59,16 +59,16 @@ class ImportDialog(QDialog):
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
-            "✓", "German Word", "English Word", "German Sentence", "English Sentence", "Plural"
+            "✓", "German Word", "Native Lang. Word", "German Sentence", "Native Lang. Sentence", "Plural"
         ])
         
         # Set column widths
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)  # Checkbox
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)  # German Word
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # English Word
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # Native Lang. Word
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # German Sentence
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)  # English Sentence
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)  # Native Lang. Sentence
         header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)  # Plural
         
         self.table.setColumnWidth(0, 40)
@@ -78,6 +78,7 @@ class ImportDialog(QDialog):
         # Action buttons
         button_layout = QHBoxLayout()
         
+        # Clear server button
         clear_btn = QPushButton("Clear Server")
         clear_btn.clicked.connect(self.clear_server_words)
         clear_btn.setToolTip("Clear all processed words from server without importing")
@@ -92,32 +93,22 @@ class ImportDialog(QDialog):
         import_btn = QPushButton("Import Selected")
         import_btn.clicked.connect(self.import_selected_words)
         import_btn.setDefault(True)
+        import_btn.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; font-weight: bold; }")
         button_layout.addWidget(import_btn)
         
         layout.addLayout(button_layout)
     
     def populate_table(self):
-        """Populate table with word data and highlight flagged entries"""
+        """Populate table with word data"""
         self.table.setRowCount(len(self.words))
         
-        flagged_color = QColor(168, 50, 60)  # Dark red background
-        
         for row, word in enumerate(self.words):
-            # Check if word has review flags with length > 0
-            has_flags = isinstance(word, dict) and word.get('review_flags') and len(word.get('review_flags', [])) > 0
-            
-            # Checkbox (column 0)
-            checkbox_item = QTableWidgetItem("")
-            checkbox_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
-            if has_flags:
-                checkbox_item.setBackground(flagged_color)
-            self.table.setItem(row, 0, checkbox_item)
-            
+            # Checkbox
             checkbox = QCheckBox()
-            checkbox.setChecked(True)
+            checkbox.setChecked(True)  # Select all by default
             self.table.setCellWidget(row, 0, checkbox)
             
-            # Word data (columns 1-5)
+            # Word data
             data = [
                 word.get('original_word', ''),
                 word.get('nl_word', ''),
@@ -129,10 +120,9 @@ class ImportDialog(QDialog):
             for col, text in enumerate(data, 1):
                 item = QTableWidgetItem(str(text))
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-                if has_flags:
-                    item.setBackground(flagged_color)
                 self.table.setItem(row, col, item)
         
+        # Adjust row heights
         self.table.resizeRowsToContents()
     
     def select_all(self, checked: bool):
@@ -149,13 +139,14 @@ class ImportDialog(QDialog):
         for row in range(self.table.rowCount()):
             checkbox = self.table.cellWidget(row, 0)
             if checkbox and checkbox.isChecked():
+                # Get edited values from table
                 word_data = {
                     'original_word': self.table.item(row, 1).text(),
                     'nl_word': self.table.item(row, 2).text(),
                     'tl_sentence': self.table.item(row, 3).text(),
                     'nl_sentence': self.table.item(row, 4).text(),
                     'tl_plural': self.table.item(row, 5).text(),
-                    'id': self.words[row].get('id', '')
+                    'id': self.words[row].get('id', '')  # Keep original ID
                 }
                 selected.append(word_data)
         
@@ -166,6 +157,7 @@ class ImportDialog(QDialog):
         selected_words = self.get_selected_words()
         
         if not selected_words:
+            # No words selected - ask if user wants to clear server
             reply = QMessageBox.question(
                 self, 
                 "No Words Selected", 
@@ -178,6 +170,7 @@ class ImportDialog(QDialog):
                 self.clear_server_words()
             return
         
+        # Confirm import
         reply = QMessageBox.question(
             self,
             "Confirm Import",
@@ -190,12 +183,15 @@ class ImportDialog(QDialog):
             return
         
         try:
+            # Create cards
             deck_name = self.config.get('deck_name', 'Default')
             created, failed = self.card_processor.create_cards_from_words(selected_words, deck_name)
             
             if created > 0:
+                # Clear processed words from server after successful import
                 success, _ = self.api.clear_words()
                 
+                # Show results
                 message = f"✅ Successfully imported {created} cards"
                 if failed > 0:
                     message += f"\n⚠️ {failed} cards failed to import"
